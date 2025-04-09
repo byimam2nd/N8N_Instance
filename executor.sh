@@ -7,6 +7,9 @@
 CONFIG_FILE="$GITHUB_URL/data_n8n.conf"
 source <(curl -s "$CONFIG_FILE")
 
+# ambil token yang sudah di definisikan.
+GITHUB_TOKEN=$(curl -s "$GITHUB_TOKEN_URL")
+
 # -----------------------------
 # Cek dan Install jq otomatis
 # -----------------------------
