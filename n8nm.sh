@@ -1,21 +1,10 @@
 #!/bin/bash
 
-# Mengambil data variable di gist langsung
-CONFIG_FILE="https://gist.github.com/byimam2nd/4b25332b43d59689e759088ad8053f22/raw/data_n8n.conf"
-source <(curl -s "$CONFIG_URL")
+# Mengambil data variable dengan raw
+CONFIG_FILE="$GITHUB_URL/data_n8n.conf"
+source <(curl -s "$CONFIG_FILE")
 
-while true; do
-  read -p "Apakah ingin menggunakan sudo untuk setiap perintah? (y/n): " use_sudo
-  if [[ -z "$use_sudo" ]]; then
-    SUDO="sudo"
-    break
-  fi
-  case $use_sudo in
-    [Yy]*) SUDO="sudo"; break ;;
-    [Nn]*) SUDO=""; break ;;
-    *) echo "Masukkan y atau n saja!" ;;
-  esac
-done
+sudo_controller
 
 # Fungsi untuk menyimpan konfigurasi
 function save_config() {

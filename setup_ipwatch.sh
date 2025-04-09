@@ -1,34 +1,14 @@
 #!/bin/bash
 
-# Mengambil data variable di gist langsung
-CONFIG_FILE="https://gist.github.com/byimam2nd/4b25332b43d59689e759088ad8053f22/raw/data_n8n.conf"
-source <(curl -s "$CONFIG_URL")
-
-# -------------------------------
-# Bagian Atas: Variabel Konfigurasi
-# -------------------------------
-DUCKDNS_DOMAIN="exlionn8n.duckdns.org"
-DUCKDNS_TOKEN="60e9ee0f-dc88-4206-8e1b-28989c117b96"
-TELEGRAM_TOKEN="bot7643811939:AAF60CGNfupKFoyDwN7rT2_Jai3qglUftIw"
-TELEGRAM_CHAT_ID="832658254"
-
-SERVICE_NAME="ipwatch"
-USERNAME=$(whoami)
-HOME_DIR="/home/$USERNAME"
-SCRIPT_PATH="$HOME_DIR/ip_watchdog.sh"
-SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
-IP_FILE="$HOME_DIR/.last_ip"
-
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-CYAN='\033[1;36m'
-RESET='\033[0m'
+# Mengambil data variable dengan raw
+CONFIG_FILE="$GITHUB_URL/data_n8n.conf"
+source <(curl -s "$CONFIG_FILE")
 
 # -------------------------------
 # Fungsi Kirim Telegram
 # -------------------------------
 kirim_telegram() {
-    curl -s -X POST "https://api.telegram.org/$TELEGRAM_TOKEN/sendMessage" \
+    curl -s -X POST "https://api.telegram.org/$TOKEN_TELEGRAM/sendMessage" \
         -d chat_id="$TELEGRAM_CHAT_ID" \
         -d parse_mode="Markdown" \
         --data-urlencode "text=$1" > /dev/null
@@ -39,13 +19,13 @@ kirim_telegram() {
 # -------------------------------
 hapus_instalasi() {
     echo -e "${YELLOW}>> Menghapus service dan file terkait...${RESET}"
-    sudo systemctl stop $SERVICE_NAME
-    sudo systemctl disable $SERVICE_NAME
-    sudo rm -f "$SERVICE_FILE"
+    $SUDO systemctl stop $SERVICE_NAME
+    $SUDO systemctl disable $SERVICE_NAME
+    $SUDO rm -f "$SERVICE_FILE"
     rm -f "$SCRIPT_PATH" "$IP_FILE"
 
-    sudo systemctl daemon-reload
-    sudo systemctl daemon-reexec
+    $SUDO systemctl daemon-reload
+    $SUDO systemctl daemon-reexec
 
     echo -e "${GREEN}✓ Otomatisasi berhasil dihapus.${RESET}"
     kirim_telegram "🛑 *[IP Watchdog]* Otomatisasi berhasil dihentikan dan semua file dihapus dari sistem."
@@ -67,13 +47,13 @@ cat <<'EOF' > "$SCRIPT_PATH"
 #!/bin/bash
 
 IP_FILE="$HOME/.last_ip"
-DUCKDNS_DOMAIN="exlionn8n.duckdns.org"
+DOMAIN="exlionn8n.duckdns.org"
 DUCKDNS_TOKEN="60e9ee0f-dc88-4206-8e1b-28989c117b96"
-TELEGRAM_TOKEN="bot7643811939:AAF60CGNfupKFoyDwN7rT2_Jai3qglUftIw"
+TOKEN_TELEGRAM="bot7643811939:AAF60CGNfupKFoyDwN7rT2_Jai3qglUftIw"
 TELEGRAM_CHAT_ID="832658254"
 
 send_telegram() {
-    curl -s -X POST "https://api.telegram.org/$TELEGRAM_TOKEN/sendMessage" \
+    curl -s -X POST "https://api.telegram.org/$TOKEN_TELEGRAM/sendMessage" \
         -d chat_id="$TELEGRAM_CHAT_ID" \
         -d parse_mode="Markdown" \
         --data-urlencode "text=$1"
@@ -89,7 +69,7 @@ while true; do
         LAST_IP=$(cat "$IP_FILE")
         if [ "$CURRENT_IP" != "$LAST_IP" ]; then
             echo "$CURRENT_IP" > "$IP_FILE"
-            curl -s "https://www.duckdns.org/update?domains=$DUCKDNS_DOMAIN&token=$DUCKDNS_TOKEN&ip=$CURRENT_IP" > /dev/null
+            curl -s "https://www.duckdns.org/update?domains=$DOMAIN&token=$DUCKDNS_TOKEN&ip=$CURRENT_IP" > /dev/null
 
             TEXT="⚠️ *Perubahan IP Terdeteksi!*
 
@@ -99,7 +79,7 @@ while true; do
 🔄 DuckDNS telah diperbarui dan pengecekan SSL sedang dilakukan. Tetap siaga!"
             send_telegram "$TEXT"
 
-            sudo certbot renew --quiet
+            $SUDO certbot renew --quiet
         fi
     fi
     sleep 5
@@ -111,7 +91,7 @@ chmod +x "$SCRIPT_PATH"
 # -------------------------------
 # Buat File systemd service
 # -------------------------------
-sudo tee "$SERVICE_FILE" > /dev/null <<EOF
+$SUDO tee "$SERVICE_FILE" > /dev/null <<EOF
 [Unit]
 Description=Realtime IP Watcher for DuckDNS + Telegram + SSL Check
 After=network.target
@@ -129,10 +109,10 @@ EOF
 # Reload & Aktifkan Service
 # -------------------------------
 echo -e "${CYAN}>> Menyiapkan service systemd...${RESET}"
-sudo systemctl daemon-reexec
-sudo systemctl daemon-reload
-sudo systemctl enable $SERVICE_NAME
-sudo systemctl restart $SERVICE_NAME
+$SUDO systemctl daemon-reexec
+$SUDO systemctl daemon-reload
+$SUDO systemctl enable $SERVICE_NAME
+$SUDO systemctl restart $SERVICE_NAME
 
 # -------------------------------
 # Kirim Notifikasi Awal

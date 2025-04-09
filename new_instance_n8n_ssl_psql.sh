@@ -4,12 +4,9 @@
 # Bagian atas: Variabel & Konfigurasi
 # ----------------------------
 
-# Mengambil data variable di gist langsung
-CONFIG_FILE="https://gist.github.com/byimam2nd/4b25332b43d59689e759088ad8053f22/raw/data_n8n.conf"
-source <(curl -s "$CONFIG_URL")
-
-# Gunakan sudo?
-read -p "Gunakan sudo? (y/n) " USE_SUDO; [[ "$USE_SUDO" =~ ^[Yy]$ ]] && SUDO="sudo" && echo -e "${GREEN}[✓] Sudo diaktifkan${RESET}" || SUDO=""
+# Mengambil data variable dengan raw
+CONFIG_FILE="$GITHUB_URL/data_n8n.conf"
+source <(curl -s "$CONFIG_FILE")
 
 # ----------------------------
 # Bagian tengah: Fungsi & Logika

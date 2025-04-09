@@ -3,16 +3,10 @@
 # ------------------------------
 # Bagian Atas - Konfigurasi
 # ------------------------------
-LOCAL_DB_NAME="n8ndb"
-LOCAL_DB_USER="n8nuser"
-LOCAL_DB_PASSWORD="@4Exparalion"
-LOCAL_DB_HOST="localhost"
-LOCAL_DB_PORT="5432"
 
-BACKUP_FILE="n8n_backup.dump"
-
-# Ganti dengan koneksi Neon kamu
-NEON_URL="postgresql://neondb_owner:npg_xToG21DEemRi@ep-divine-lake-a6rmww01-pooler.us-west-2.aws.neon.tech/neondb?sslmode=require"
+# Mengambil data variable dengan raw
+CONFIG_FILE="$GITHUB_URL/data_n8n.conf"
+source <(curl -s "$CONFIG_FILE")
 
 # ------------------------------
 # Bagian Tengah - Fungsi
@@ -20,7 +14,7 @@ NEON_URL="postgresql://neondb_owner:npg_xToG21DEemRi@ep-divine-lake-a6rmww01-poo
 
 backup_local_postgres() {
     echo ">> Membuat backup dari PostgreSQL lokal..."
-    PGPASSWORD="$LOCAL_DB_PASSWORD" pg_dump -U "$LOCAL_DB_USER" -h "$LOCAL_DB_HOST" -p "$LOCAL_DB_PORT" -Fc "$LOCAL_DB_NAME" \
+    PGPASSWORD="$DB_PASSWORD" pg_dump -U "$DB_USER" -h "$DB_HOST" -p "$DB_PORT" -Fc "$DB_NAME" \
         --no-owner --no-privileges --no-acl -f "$BACKUP_FILE"
 }
 
