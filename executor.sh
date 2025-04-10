@@ -25,6 +25,7 @@ fi
 # Ambil GitHub Token
 echo "[INFO] Mengambil GitHub Token dari: $TOKEN_FILE_URL"
 GITHUB_TOKEN=$(curl -s "$TOKEN_FILE_URL" | sed -n 's/^GITHUB_TOKEN="\?\(.*\)"\?/\1/p')
+echo $GITHUB_TOKEN
 
 if [[ -z "$GITHUB_TOKEN" ]]; then
   echo "[ERROR] Token GitHub kosong atau tidak valid!"
