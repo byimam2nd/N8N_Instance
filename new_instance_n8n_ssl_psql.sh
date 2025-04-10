@@ -45,10 +45,10 @@ hapus_semua() {
 # -------------------------------
 setup_nginx() {
   log "$YELLOW[*] " "Mengonfigurasi Nginx untuk reverse proxy..."
-  sudo mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled
+  $SUDO mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled
 
   # Membuat file konfigurasi Nginx
-  cat > /etc/nginx/sites-available/n8n <<EOF
+  $SUDO cat > /etc/nginx/sites-available/n8n <<EOF
 server {
     listen 80;
     server_name $DOMAIN;  # Ganti dengan subdomain jika ada
@@ -66,11 +66,11 @@ server {
 EOF
 
   # Aktifkan konfigurasi Nginx
-  sudo ln -s /etc/nginx/sites-available/n8n /etc/nginx/sites-enabled/
+  $SUDO ln -s /etc/nginx/sites-available/n8n /etc/nginx/sites-enabled/
   
   # Test konfigurasi Nginx
-  sudo nginx -t
-  sudo systemctl restart nginx
+  $SUDO nginx -t
+  $SUDO systemctl restart nginx
   log "$GREEN[✓] " "Konfigurasi Nginx berhasil dan Nginx telah di-restart."
 }
 
@@ -81,10 +81,10 @@ setup_ssl() {
   log "$YELLOW[*] " "Menyiapkan SSL dengan Certbot..."
   
   # Instalasi Certbot dan plugin Nginx
-  sudo apt install -y certbot python3-certbot-nginx
+  $SUDO apt install -y certbot python3-certbot-nginx
 
   # Menjalankan Certbot untuk mendapatkan SSL
-  sudo certbot --nginx -d $DOMAIN  # Ganti dengan subdomain jika ada
+  $SUDO certbot --nginx -d $DOMAIN  # Ganti dengan subdomain jika ada
   log "$GREEN[✓] " "SSL telah dipasang untuk $DOMAIN."
 }
 
@@ -95,11 +95,11 @@ docker_compose_setup() {
   if [ -d "$DATA_DIR" ]; then
     log "$GREEN[✓] " "Direktori data n8n sudah ada, melewati setup docker-compose."
   else
-    mkdir -p "$DATA_DIR"
+    $SUDO mkdir -p "$DATA_DIR"
     log "$YELLOW[*] " "Membuat file .env untuk n8n..."
 
     # Membuat file .env
-    cat > "$DATA_DIR/.env" <<EOF
+    $SUDO cat > "$DATA_DIR/.env" <<EOF
 DB_TYPE=postgresdb
 DB_POSTGRESDB_HOST=$DB_HOST
 DB_POSTGRESDB_PORT=$DB_PORT
@@ -115,7 +115,7 @@ EOF
     log "$YELLOW[*] " "Membuat file docker-compose.yml untuk n8n..."
 
     # Membuat file docker-compose.yml
-    cat > "$DATA_DIR/docker-compose.yml" <<EOF
+    $SUDO cat > "$DATA_DIR/docker-compose.yml" <<EOF
 version: "3.8"
 services:
   n8n:
@@ -144,7 +144,7 @@ services:
 EOF
 
     # Menjalankan docker-compose
-    cd "$DATA_DIR" && $SUDO docker-compose up -d
+    $SUDO cd "$DATA_DIR" && $SUDO docker-compose up -d
     log "$GREEN[✓] " "Docker Compose untuk n8n berhasil dijalankan."
   fi
 }
