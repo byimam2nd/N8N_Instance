@@ -1,4 +1,4 @@
-#!/bin/bash
+  #!/bin/bash
 
 # ------------------
 # Bagian atas kode: Konfigurasi
@@ -107,7 +107,7 @@ while true; do
     exit 0
   elif [[ -n "${OPTIONS[$choice]}" ]]; then
     file_name="${OPTIONS[$choice]}"
-    script_url="${GITHUB_URL}/${file_name}"
+    script_url="${GITHUB_URL}/${file_name/#\//}"
 
     echo "[INFO] Menjalankan: $file_name"
     echo "[INFO] URL: $script_url"
