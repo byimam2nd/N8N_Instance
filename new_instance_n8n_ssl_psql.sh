@@ -105,6 +105,7 @@ EOF
 version: "3.8"
 services:
   n8n:
+    container_name: n8n  # Nama container yang diinginkan
     image: docker.n8n.io/n8nio/n8n
     restart: always
     ports:
@@ -143,7 +144,6 @@ menu() {
     1)
       intro
       install_dep
-      nginx_setup
       docker_compose_setup
       log "$GREEN[✓] " "Instalasi selesai!"
       echo "Akses: https://$DOMAIN"
