@@ -40,32 +40,42 @@ install_dep() {
   eval "$INSTALL docker.io docker-compose nginx certbot psmisc" || eval "$INSTALL docker docker-compose nginx certbot psmisc"
 }
 
-get_ssl() {
-  $SUDO fuser -k 80/tcp || true
-  $SUDO systemctl stop nginx
-  $SUDO certbot certonly --standalone -d "$DOMAIN" --non-interactive --agree-tos -m "$EMAIL" || {
-    log "$RED[ERROR] " "Gagal ambil sertifikat SSL."; exit 1; }
-  $SUDO systemctl start nginx
-}
 
-nginx_conf() {
-  $SUDO tee /etc/nginx/sites-available/n8n > /dev/null <<EOF
-server { listen 80; server_name $DOMAIN; return 301 https://\$host\$request_uri; }
-server {
-  listen 443 ssl; server_name $DOMAIN;
-  ssl_certificate $SSL_DIR/live/$DOMAIN/fullchain.pem;
-  ssl_certificate_key $SSL_DIR/live/$DOMAIN/privkey.pem;
-  location / {
-    proxy_pass http://localhost:5678;
-    proxy_set_header Host \$host;
-    proxy_set_header X-Real-IP \$remote_addr;
-    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto \$scheme;
-  }
-}
+nginx_setup() {
+  $SUDO apt install nginx
+  $SUDO tee > "/etc/nginx/sites-available/n8n" <<EOF
+      server {
+          listen 80;
+          server_name $DOMAIN;
+      
+          location / {
+              proxy_pass http://localhost:5678;
+              proxy_http_version 1.1;
+              chunked_transfer_encoding off;
+              proxy_buffering off;
+              proxy_cache off;
+              proxy_set_header Upgrade $http_upgrade;
+              proxy_set_header Connection "upgrade";
+          }
+      }
 EOF
-  $SUDO ln -sf /etc/nginx/sites-available/n8n /etc/nginx/sites-enabled/n8n
-  $SUDO nginx -t && $SUDO systemctl restart nginx
+
+NGINX_SITES_ENABLED="/etc/nginx/sites-enabled"
+
+if [ ! -d "$NGINX_SITES_ENABLED" ]; then
+    echo "Direktori $NGINX_SITES_ENABLED belum ada. Membuat sekarang..."
+    $SUDO mkdir /etc/nginx/sites-enabled/
+    echo "Direktori berhasil dibuat."
+else
+    echo "Direktori $NGINX_SITES_ENABLED sudah ada."
+    $SUDO ln -s /etc/nginx/sites-available/n8n.conf /etc/nginx/sites-enabled/
+    echo "Membuat symlink direktori."
+fi
+
+$SUDO nginx -t
+$SUDO systemctl restart nginx
+$SUDO apt install certbot python3-certbot-nginx
+sudo certbot --nginx -d $DOMAIN
 }
 
 docker_compose_setup() {
@@ -119,8 +129,7 @@ hapus_semua() {
 menu() {
   echo -e "${BLUE}========== MENU N8N ==========${RESET}"
   echo "1. Install n8n + SSL + PostgreSQL"
-  echo "2. Set NGINX (SSL & Config)"
-  echo "3. Uninstall semua data"
+  echo "2. Uninstall semua data"
   echo "0. Keluar"
   echo "=============================="
   read -p "Pilih opsi: " OPT
@@ -128,18 +137,13 @@ menu() {
     1)
       intro
       install_dep
+      nginx_setup
       docker_compose_setup
       log "$GREEN[✓] " "Instalasi selesai!"
       echo "Akses: https://$DOMAIN"
       echo "Login: $BASIC_AUTH_USER | $BASIC_AUTH_PASSWORD"
       ;;
-    2)
-      log "$BLUE[*] " "Menjalankan pengaturan NGINX dan SSL..."
-      get_ssl
-      nginx_conf
-      log "$GREEN[✓] " "Pengaturan NGINX selesai!"
-      ;;
-    3) hapus_semua ;;
+    2) hapus_semua ;;
     0) exit ;;
     *) log "$RED[!] " "Pilihan tidak valid." ;;
   esac
