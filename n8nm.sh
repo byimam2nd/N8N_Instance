@@ -25,20 +25,9 @@ WEBHOOK_PATH="$WEBHOOK_PATH"
 EOF
 }
 
-# Fungsi untuk memuat konfigurasi
-function load_config() {
-  echo "Memuat konfigurasi dari $CONFIG_FILE..."
-  if [[ -f "$CONFIG_FILE" ]]; then
-    source "$CONFIG_FILE"
-  else
-    echo "Konfigurasi belum tersedia. Silakan setup ulang konfigurasi terlebih dahulu."
-    main_menu
-  fi
-}
-
 # Fungsi setup PostgreSQL
 function setup_postgres() {
-  load_config
+  
 
   echo "=== Setup PostgreSQL ==="
 
@@ -86,7 +75,7 @@ function cek_ip() {
 
 # Fungsi jalankan ulang n8n container
 function run_n8n() {
-  load_config
+  
   echo "Menjalankan ulang container n8n..."
   $SUDO docker stop n8n 2>/dev/null
   $SUDO docker rm n8n 2>/dev/null
@@ -133,7 +122,7 @@ function start_n8n() {
 
 # Fungsi cek koneksi ke DB
 function cek_koneksi_db() {
-  load_config
+  
   echo "Cek koneksi ke PostgreSQL..."
   PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -U "$DB_USER" -p "$DB_PORT" -d "$DB_NAME" -c "\dt"
   if [[ $? -ne 0 ]]; then
@@ -145,7 +134,7 @@ function cek_koneksi_db() {
 
 # Fungsi backup ke GCS
 function backup_to_bucket() {
-  load_config
+  
   BACKUP_FILE="n8n_backup_$(date +%Y%m%d_%H%M%S).sql.gz"
 
   if [[ -z "$GCS_BUCKET_NAME" ]]; then
@@ -179,7 +168,7 @@ function backup_to_bucket() {
 
 # Fungsi restore dari GCS
 function restore_from_bucket() {
-  load_config
+  
 
   if [[ -z "$GCS_BUCKET_NAME" ]]; then
     echo "GCS_BUCKET_NAME belum diset. Setup konfigurasi dulu."
@@ -232,7 +221,7 @@ hapus_backup_lama() {
 
 # Fungsi untuk mengelola webhook Telegram
 webhook_menu() {
-    load_config
+    
     #clear
     echo "======================================="
     echo " 📡 Kelola Webhook Telegram"
@@ -312,7 +301,7 @@ webhook_menu() {
 }
 # Fungsi untuk mengelola DuckDNS
 duckdns_menu() {
-    load_config
+    
     echo "======================================="
     echo " 🦆 Update IP DuckDNS"
     echo "======================================="
