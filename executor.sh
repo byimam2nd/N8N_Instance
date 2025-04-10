@@ -1,31 +1,56 @@
 #!/bin/bash
 
 # ------------------
-# Konfigurasi
+# Bagian atas kode: Konfigurasi
 # ------------------
-# Code untuk mengambil variable
+# URL konfigurasi
 CONFIG_FILE="$GITHUB_URL/data_n8n.conf"
-source <(curl -s "$CONFIG_FILE")
+TOKEN_FILE_URL="$GITHUB_TOKEN_URL"
 
-# ambil token yang sudah di definisikan.
-GITHUB_TOKEN=$(curl -s "$GITHUB_TOKEN_URL" | sed 's/^GITHUB_TOKEN=//')
+# Cek apakah variabel penting terdefinisi
+if [[ -z "$CONFIG_FILE" || -z "$TOKEN_FILE_URL" ]]; then
+  echo -e "[ERROR] GITHUB_URL atau GITHUB_TOKEN_URL belum terdefinisi!"
+  exit 1
+fi
+
+# Load konfigurasi utama
+echo "[INFO] Memuat konfigurasi dari: $CONFIG_FILE"
+source <(curl -s "$CONFIG_FILE") || { echo "[ERROR] Gagal memuat konfigurasi."; exit 1; }
+
+# Ambil GitHub Token
+echo "[INFO] Mengambil GitHub Token dari: $TOKEN_FILE_URL"
+GITHUB_TOKEN=$(curl -s "$TOKEN_FILE_URL" | sed 's/^GITHUB_TOKEN=//')
+
+if [[ -z "$GITHUB_TOKEN" ]]; then
+  echo "[ERROR] Token GitHub kosong atau tidak valid!"
+  exit 1
+fi
+
+# Validasi token GitHub
+VALID_USER=$(curl -s -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/user | jq -r '.login')
+if [[ "$VALID_USER" == "null" || -z "$VALID_USER" ]]; then
+  echo "[ERROR] Token GitHub tidak valid atau gagal otentikasi."
+  exit 1
+else
+  echo "[INFO] Otentikasi GitHub berhasil sebagai: $VALID_USER"
+fi
 
 # -----------------------------
 # Cek dan Install jq otomatis
 # -----------------------------
 if ! command -v jq &>/dev/null; then
-  echo -e "${YELLOW}[!] 'jq' tidak ditemukan. Menginstal secara otomatis...${RESET}"
+  echo "[WARN] 'jq' tidak ditemukan. Menginstal secara otomatis..."
   sleep 1
   if command -v apt &>/dev/null; then
-    $SUDO apt update && sudo apt install -y jq
+    $SUDO apt update && $SUDO apt install -y jq
     if [ $? -eq 0 ]; then
-      echo -e "${GREEN}[✓] 'jq' berhasil diinstal.${RESET}"
+      echo "[INFO] 'jq' berhasil diinstal."
     else
-      echo -e "${RED}[✘] Gagal menginstal 'jq'. Silakan instal manual.${RESET}"
+      echo "[ERROR] Gagal menginstal 'jq'."
       exit 1
     fi
   else
-    echo -e "${RED}[✘] Sistem Anda tidak mendukung 'apt'. Instal 'jq' secara manual.${RESET}"
+    echo "[ERROR] Sistem tidak mendukung APT. Instal 'jq' secara manual."
     exit 1
   fi
 fi
@@ -33,7 +58,18 @@ fi
 # ------------------
 # Bagian tengah: Ambil daftar file .sh dari GitHub
 # ------------------
-FILE_NAMES=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$API_URL" | jq -r '.[] | select(.type == "file") | select(.name | endswith(".sh")) | .name')
+echo "[INFO] Mengambil daftar file .sh dari repository..."
+RESPONSE=$(curl -s -H "Authorization: token $GITHUB_TOKEN" "$API_URL")
+if [[ -z "$RESPONSE" ]]; then
+  echo "[ERROR] Gagal mengambil data dari API GitHub."
+  exit 1
+fi
+
+FILE_NAMES=$(echo "$RESPONSE" | jq -r '.[] | select(.type == "file") | select(.name | endswith(".sh")) | .name')
+if [[ -z "$FILE_NAMES" ]]; then
+  echo "[INFO] Tidak ditemukan file .sh di repositori."
+  exit 0
+fi
 
 declare -A RAW_FILES
 for fname in $FILE_NAMES; do
@@ -44,31 +80,31 @@ done
 # Bagian akhir: Menu interaktif
 # ------------------
 while true; do
-  echo -e "\n${BOLD}${CYAN}========= MENU EXECUTOR =========${RESET}"
+  echo -e "\n========= MENU EXECUTOR ========="
   i=1
   OPTIONS=()
   for name in "${!RAW_FILES[@]}"; do
-    echo -e "${YELLOW}$i)${RESET} ${GREEN}$name${RESET}"
+    echo -e "$i) $name"
     OPTIONS[$i]="$name"
     ((i++))
   done
-  echo -e "${YELLOW}0)${RESET} ${RED}Keluar${RESET}"
-  echo -e "${CYAN}=================================${RESET}"
+  echo -e "0) Keluar"
+  echo -e "================================="
 
-  read -p "$(echo -e "${BOLD}Pilih opsi [0-${#OPTIONS[@]}]: ${RESET}")" choice
+  read -p "Pilih opsi [0-$((i-1))]: " choice
 
   if [[ "$choice" == "0" ]]; then
-    echo -e "${RED}[!] Keluar dari program.${RESET}"
+    echo "[INFO] Keluar dari program."
     exit 0
   elif [[ -n "${OPTIONS[$choice]}" ]]; then
     file_name="${OPTIONS[$choice]}"
     script_url="${RAW_FILES[$file_name]}"
 
-    echo -e "${BLUE}[▶] Menjalankan:${RESET} ${BOLD}$file_name${RESET}"
-    echo -e "${CYAN}URL:${RESET} $script_url"
+    echo "[INFO] Menjalankan: $file_name"
+    echo "[INFO] URL: $script_url"
     echo ""
-    bash <(curl -s "$script_url")
+    bash <(curl -s "$script_url") || echo "[ERROR] Gagal menjalankan $file_name"
   else
-    echo -e "${RED}[!] Pilihan tidak valid.${RESET}"
+    echo "[WARN] Pilihan tidak valid. Coba lagi."
   fi
 done
