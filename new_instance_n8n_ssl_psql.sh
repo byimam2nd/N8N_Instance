@@ -17,12 +17,12 @@ typewriter() { while IFS= read -r -n1 c; do printf "%s" "$c"; sleep "${2:-0.02}"
 intro() {
   echo; echo "Deskripsi Proses:"
   echo "1. Install Docker, Docker Compose, NGINX, Certbot"
-  echo "2. Ambil sertifikat SSL dari Let's Encrypt ($DOMAIN)"
-  echo "3. Setup HTTPS reverse proxy NGINX"
+  echo "2. Setup HTTPS reverse proxy NGINX"
+  echo "3. Install SSL menggunakan Certbot"
   echo "4. Hubungkan ke DB Neon PostgreSQL"
   echo "5. Aktifkan login basic auth ($BASIC_AUTH_USER)"
   echo "6. Simpan data di $DATA_DIR"
-  echo "7. Otomatis jalankan dan restart container n8n"
+  echo "7. Jalankan dan restart container n8n"
   echo "8. Jalankan ulang dengan: docker start \$(docker ps -aqf name=n8n)"
   echo
 }
@@ -39,49 +39,42 @@ install_dep() {
   eval "$INSTALL docker.io docker-compose nginx certbot psmisc" || eval "$INSTALL docker docker-compose nginx certbot psmisc"
 }
 
-get_ssl() {
-  $SUDO fuser -k 80/tcp || true
-  $SUDO systemctl stop nginx
-  $SUDO certbot certonly --standalone -d "$DOMAIN" --non-interactive --agree-tos -m "$EMAIL" || {
-    log "$RED[ERROR] " "Gagal ambil sertifikat SSL."; exit 1; }
-  $SUDO systemctl start nginx
-}
-
-# Fungsi untuk memastikan file sertifikat dan kunci memiliki izin yang benar
-fix_ssl_permissions() {
-  log "$YELLOW[*] " "Memperbaiki izin file sertifikat SSL..."
-  $SUDO chmod 644 /etc/letsencrypt/archive/ezlionn8n.duckdns.org/*.pem
-  $SUDO chown root:www-data /etc/letsencrypt/archive/ezlionn8n.duckdns.org/*.pem
-  $SUDO chmod 644 /etc/letsencrypt/live/ezlionn8n.duckdns.org/*.pem
-  $SUDO chown root:www-data /etc/letsencrypt/live/ezlionn8n.duckdns.org/*.pem
-  log "$GREEN[✓] " "Izin file sertifikat telah diperbaiki."
-}
-
 nginx_conf() {
-  # Pastikan konfigurasi SSL pada NGINX benar
-  log "$YELLOW[*] " "Memastikan konfigurasi NGINX..."
-  if ! grep -q "ssl_certificate" /etc/nginx/sites-available/n8n; then
-    log "$RED[ERROR] " "Konfigurasi SSL tidak ditemukan di file NGINX!"
-    exit 1
-  fi
-  
+  # Pastikan direktori sites-enabled ada
+  $SUDO mkdir -p /etc/nginx/sites-enabled
+
+  # Buat konfigurasi NGINX untuk n8n
+  log "$YELLOW[*] " "Membuat konfigurasi NGINX untuk n8n..."
   $SUDO tee /etc/nginx/sites-available/n8n > /dev/null <<EOF
-server { listen 80; server_name $DOMAIN; return 301 https://\$host\$request_uri; }
 server {
-  listen 443 ssl; server_name $DOMAIN;
-  ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
-  ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
-  location / {
-    proxy_pass http://localhost:5678;
-    proxy_set_header Host \$host;
-    proxy_set_header X-Real-IP \$remote_addr;
-    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto \$scheme;
-  }
+    listen 80;
+    server_name $DOMAIN;
+
+    location / {
+        proxy_pass http://localhost:5678;
+        proxy_http_version 1.1;
+        chunked_transfer_encoding off;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
 }
 EOF
-  $SUDO ln -sf /etc/nginx/sites-available/n8n /etc/nginx/sites-enabled/n8n
+
+  # Enable konfigurasi NGINX
+  $SUDO ln -sf /etc/nginx/sites-available/n8n /etc/nginx/sites-enabled/
+
+  # Test dan restart NGINX
   $SUDO nginx -t && $SUDO systemctl restart nginx
+}
+
+get_ssl() {
+  log "$YELLOW[*] " "Mengambil sertifikat SSL menggunakan Certbot..."
+  $SUDO apt install -y certbot python3-certbot-nginx
+  $SUDO certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos -m "$EMAIL" || {
+    log "$RED[ERROR] " "Gagal ambil sertifikat SSL."; exit 1; }
+  log "$GREEN[✓] " "Sertifikat SSL telah diterapkan untuk $DOMAIN."
 }
 
 docker_compose_setup() {
@@ -143,9 +136,8 @@ menu() {
     1)
       intro
       install_dep
-      get_ssl
-      fix_ssl_permissions  # Perbaiki izin file sertifikat SSL
       nginx_conf
+      get_ssl
       docker_compose_setup
       log "$GREEN[✓] " "Instalasi selesai!"
       echo "Akses: https://$DOMAIN"
