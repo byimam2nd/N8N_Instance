@@ -1,10 +1,9 @@
- #!/bin/bash
+#!/bin/bash
 
 # ----------------------------
 # Bagian atas: Variabel & Konfigurasi
 # ----------------------------
 
-# Mengambil data variable dengan raw
 CONFIG_FILE="https://raw.githubusercontent.com/byimam2nd/N8N_Instance/main/data_n8n.conf"
 source <(curl -s "$CONFIG_FILE")
 
@@ -48,13 +47,30 @@ get_ssl() {
   $SUDO systemctl start nginx
 }
 
+# Fungsi untuk memastikan file sertifikat dan kunci memiliki izin yang benar
+fix_ssl_permissions() {
+  log "$YELLOW[*] " "Memperbaiki izin file sertifikat SSL..."
+  $SUDO chmod 644 /etc/letsencrypt/archive/ezlionn8n.duckdns.org/*.pem
+  $SUDO chown root:www-data /etc/letsencrypt/archive/ezlionn8n.duckdns.org/*.pem
+  $SUDO chmod 644 /etc/letsencrypt/live/ezlionn8n.duckdns.org/*.pem
+  $SUDO chown root:www-data /etc/letsencrypt/live/ezlionn8n.duckdns.org/*.pem
+  log "$GREEN[✓] " "Izin file sertifikat telah diperbaiki."
+}
+
 nginx_conf() {
+  # Pastikan konfigurasi SSL pada NGINX benar
+  log "$YELLOW[*] " "Memastikan konfigurasi NGINX..."
+  if ! grep -q "ssl_certificate" /etc/nginx/sites-available/n8n; then
+    log "$RED[ERROR] " "Konfigurasi SSL tidak ditemukan di file NGINX!"
+    exit 1
+  fi
+  
   $SUDO tee /etc/nginx/sites-available/n8n > /dev/null <<EOF
 server { listen 80; server_name $DOMAIN; return 301 https://\$host\$request_uri; }
 server {
   listen 443 ssl; server_name $DOMAIN;
-  ssl_certificate $SSL_DIR/live/$DOMAIN/fullchain.pem;
-  ssl_certificate_key $SSL_DIR/live/$DOMAIN/privkey.pem;
+  ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
   location / {
     proxy_pass http://localhost:5678;
     proxy_set_header Host \$host;
@@ -128,6 +144,7 @@ menu() {
       intro
       install_dep
       get_ssl
+      fix_ssl_permissions  # Perbaiki izin file sertifikat SSL
       nginx_conf
       docker_compose_setup
       log "$GREEN[✓] " "Instalasi selesai!"
