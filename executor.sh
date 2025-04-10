@@ -4,7 +4,7 @@
 # Bagian atas kode: Konfigurasi
 # ------------------
 # URL konfigurasi
-CONFIG_FILE="$GITHUB_URL/data_n8n.conf"
+CONFIG_FILE="https://raw.githubusercontent.com/byimam2nd/N8N_Instance/main/data_n8n.conf"
 TOKEN_FILE_URL="$GITHUB_TOKEN_URL"
 
 # Load konfigurasi utama

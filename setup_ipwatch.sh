@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Mengambil data variable dengan raw
-CONFIG_FILE="$GITHUB_URL/data_n8n.conf"
+CONFIG_FILE="https://raw.githubusercontent.com/byimam2nd/N8N_Instance/main/data_n8n.conf"
 source <(curl -s "$CONFIG_FILE")
 
 # -------------------------------
