@@ -119,8 +119,7 @@ hapus_semua() {
 menu() {
   echo -e "${BLUE}========== MENU N8N ==========${RESET}"
   echo "1. Install n8n + SSL + PostgreSQL"
-  echo "2. Set NGINX (SSL & Config)"
-  echo "3. Uninstall semua data"
+  echo "2. Uninstall semua data"
   echo "0. Keluar"
   echo "=============================="
   read -p "Pilih opsi: " OPT
@@ -135,14 +134,10 @@ menu() {
       echo "Akses: https://$DOMAIN"
       echo "Login: $BASIC_AUTH_USER | $BASIC_AUTH_PASSWORD"
       ;;
-    2)
-      log "$BLUE[*] " "Menjalankan pengaturan NGINX dan SSL..."
-      get_ssl
-      nginx_conf
-      log "$GREEN[✓] " "Pengaturan NGINX selesai!"
-      ;;
-    3) hapus_semua ;;
+    2) hapus_semua ;;
     0) exit ;;
     *) log "$RED[!] " "Pilihan tidak valid." ;;
   esac
 }
+
+menu
