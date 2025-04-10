@@ -17,12 +17,12 @@ typewriter() { while IFS= read -r -n1 c; do printf "%s" "$c"; sleep "${2:-0.02}"
 intro() {
   echo; echo "Deskripsi Proses:"
   echo "1. Install Docker, Docker Compose, NGINX, Certbot"
-  echo "2. Ambil sertifikat SSL dari Let's Encrypt ($DOMAIN)"
-  echo "3. Setup HTTPS reverse proxy NGINX"
+  echo "2. Setup HTTPS reverse proxy NGINX"
+  echo "3. Install SSL menggunakan Certbot"
   echo "4. Hubungkan ke DB Neon PostgreSQL"
   echo "5. Aktifkan login basic auth ($BASIC_AUTH_USER)"
   echo "6. Simpan data di $DATA_DIR"
-  echo "7. Otomatis jalankan dan restart container n8n"
+  echo "7. Jalankan dan restart container n8n"
   echo "8. Jalankan ulang dengan: docker start \$(docker ps -aqf name=n8n)"
   echo
 }
@@ -34,77 +34,72 @@ pkg_manager() {
   [[ -z "$INSTALL" ]] && log "$RED[ERROR] " "Package manager tidak ditemukan!" && exit 1
 }
 
-# Cek apakah dependency sudah terinstal
 install_dep() {
   pkg_manager
-  if ! command -v docker &> /dev/null; then
+  # Cek jika Docker, Docker Compose, NGINX, dan Certbot sudah terpasang
+  if ! command -v docker &> /dev/null || ! command -v docker-compose &> /dev/null || ! command -v nginx &> /dev/null || ! command -v certbot &> /dev/null; then
     eval "$INSTALL docker.io docker-compose nginx certbot psmisc" || eval "$INSTALL docker docker-compose nginx certbot psmisc"
   else
     log "$GREEN[✓] " "Docker, Docker Compose, NGINX, dan Certbot sudah terinstal."
   fi
 }
 
-# Cek sertifikat SSL, jika sudah ada, lewati
-get_ssl() {
-  if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
-    log "$GREEN[✓] " "Sertifikat SSL sudah ada, melewati pengambilan sertifikat."
-  else
-    $SUDO fuser -k 80/tcp || true
-    $SUDO systemctl stop nginx
-    $SUDO certbot certonly --standalone -d "$DOMAIN" --non-interactive --agree-tos -m "$EMAIL" || {
-      log "$RED[ERROR] " "Gagal ambil sertifikat SSL."; exit 1; }
-    $SUDO systemctl start nginx
-    log "$GREEN[✓] " "Sertifikat SSL berhasil diambil."
-  fi
-}
-
-# Fungsi untuk memastikan file sertifikat dan kunci memiliki izin yang benar
-fix_ssl_permissions() {
-  log "$YELLOW[*] " "Memperbaiki izin file sertifikat SSL..."
-  $SUDO chmod 644 /etc/letsencrypt/archive/$DOMAIN/*.pem
-  $SUDO chown root:www-data /etc/letsencrypt/archive/$DOMAIN/*.pem
-  $SUDO chmod 644 /etc/letsencrypt/live/$DOMAIN/*.pem
-  $SUDO chown root:www-data /etc/letsencrypt/live/$DOMAIN/*.pem
-  log "$GREEN[✓] " "Izin file sertifikat telah diperbaiki."
-}
-
 nginx_conf() {
+  # Pastikan direktori sites-enabled ada
+  $SUDO mkdir -p /etc/nginx/sites-enabled
+
+  # Cek jika konfigurasi NGINX sudah ada
   if [ -f "/etc/nginx/sites-available/n8n" ]; then
     log "$GREEN[✓] " "Konfigurasi NGINX untuk n8n sudah ada, melewati konfigurasi."
   else
+    # Buat konfigurasi NGINX untuk n8n
     log "$YELLOW[*] " "Membuat konfigurasi NGINX untuk n8n..."
     $SUDO tee /etc/nginx/sites-available/n8n > /dev/null <<EOF
 server {
-  listen 80;
-  server_name $DOMAIN;
-  return 301 https://\$host\$request_uri;
-}
-server {
-  listen 443 ssl;
-  server_name $DOMAIN;
-  ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
-  ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
-  location / {
-    proxy_pass http://localhost:5678;
-    proxy_set_header Host \$host;
-    proxy_set_header X-Real-IP \$remote_addr;
-    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto \$scheme;
-  }
+    listen 80;
+    server_name $DOMAIN;
+
+    location / {
+        proxy_pass http://localhost:5678;
+        proxy_http_version 1.1;
+        chunked_transfer_encoding off;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
 }
 EOF
-    $SUDO ln -sf /etc/nginx/sites-available/n8n /etc/nginx/sites-enabled/n8n
+
+    # Enable konfigurasi NGINX
+    $SUDO ln -sf /etc/nginx/sites-available/n8n /etc/nginx/sites-enabled/
+
+    # Test dan restart NGINX
     $SUDO nginx -t && $SUDO systemctl restart nginx
-    log "$GREEN[✓] " "Konfigurasi NGINX berhasil."
+  fi
+}
+
+get_ssl() {
+  # Cek jika sertifikat SSL sudah ada
+  if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+    log "$GREEN[✓] " "Sertifikat SSL sudah ada, melewati pengambilan sertifikat."
+  else
+    log "$YELLOW[*] " "Mengambil sertifikat SSL menggunakan Certbot..."
+    $SUDO apt install -y certbot python3-certbot-nginx
+    $SUDO certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos -m "$EMAIL" || {
+      log "$RED[ERROR] " "Gagal ambil sertifikat SSL."; exit 1; }
+    log "$GREEN[✓] " "Sertifikat SSL telah diterapkan untuk $DOMAIN."
   fi
 }
 
 docker_compose_setup() {
+  # Cek jika direktori data sudah ada
   if [ -d "$DATA_DIR" ]; then
     log "$GREEN[✓] " "Direktori data n8n sudah ada, melewati setup docker-compose."
   else
     mkdir -p "$DATA_DIR"
-    log "$YELLOW[*] " "Membuat file .env untuk n8n..."
+
+    # Buat file .env
     cat > "$DATA_DIR/.env" <<EOF
 DB_TYPE=postgresdb
 DB_POSTGRESDB_HOST=$DB_HOST
@@ -118,7 +113,7 @@ N8N_BASIC_AUTH_PASSWORD=$BASIC_AUTH_PASSWORD
 WEBHOOK_TUNNEL_URL=https://$DOMAIN
 EOF
 
-    log "$YELLOW[*] " "Membuat file docker-compose.yml untuk n8n..."
+    # Buat docker-compose.yml
     cat > "$DATA_DIR/docker-compose.yml" <<EOF
 version: "3.8"
 services:
@@ -132,8 +127,8 @@ services:
     volumes:
       - $DATA_DIR:/home/node/.n8n
 EOF
+
     cd "$DATA_DIR" && $SUDO docker-compose up -d
-    log "$GREEN[✓] " "Docker Compose untuk n8n berhasil dijalankan."
   fi
 }
 
@@ -161,9 +156,8 @@ menu() {
     1)
       intro
       install_dep
-      get_ssl
-      fix_ssl_permissions  # Perbaiki izin file sertifikat SSL
       nginx_conf
+      get_ssl
       docker_compose_setup
       log "$GREEN[✓] " "Instalasi selesai!"
       echo "Akses: https://$DOMAIN"
