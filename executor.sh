@@ -77,7 +77,14 @@ FILE_NAMES=$(echo "$RESPONSE" | jq -r '.[] | select(.type == "file") | select(.n
 # Filter file .sh yang tidak ada di EXCLUDE_FILES
 FILTERED_FILES=()
 for fname in $FILE_NAMES; do
-  if [[ ! " ${EXCLUDE_FILES[@]} " =~ " ${fname} " ]]; then
+  EXCLUDE=false
+  for exclude in "${EXCLUDE_FILES[@]}"; do
+    if [[ "$fname" == "$exclude" ]]; then
+      EXCLUDE=true
+      break
+    fi
+  done
+  if [[ "$EXCLUDE" == false ]]; then
     FILTERED_FILES+=("$fname")
   fi
 done
