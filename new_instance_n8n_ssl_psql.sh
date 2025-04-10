@@ -47,11 +47,11 @@ setup_nginx() {
   log "$YELLOW[*] " "Mengonfigurasi Nginx untuk reverse proxy..."
   $SUDO mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled
 
-  # Membuat file konfigurasi Nginx
-  $SUDO cat > /etc/nginx/sites-available/n8n <<EOF
+  # Membuat file konfigurasi Nginx dengan $SUDO tee
+  $SUDO tee /etc/nginx/sites-available/n8n > /dev/null <<EOF
 server {
     listen 80;
-    server_name $DOMAIN;  # Ganti dengan subdomain jika ada
+    server_name $DOMAIN;
 
     location / {
         proxy_pass http://localhost:5678;
@@ -61,18 +61,24 @@ server {
         proxy_cache off;
         proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
     }
 }
 EOF
 
-  # Aktifkan konfigurasi Nginx
-  $SUDO ln -s /etc/nginx/sites-available/n8n /etc/nginx/sites-enabled/
-  
+  # Aktifkan konfigurasi Nginx jika belum ada
+  if [ ! -f /etc/nginx/sites-enabled/n8n ]; then
+    $SUDO ln -s /etc/nginx/sites-available/n8n /etc/nginx/sites-enabled/
+  fi
+
   # Test konfigurasi Nginx
-  $SUDO nginx -t
-  $SUDO systemctl restart nginx
+  $SUDO nginx -t && $SUDO systemctl restart nginx
   log "$GREEN[✓] " "Konfigurasi Nginx berhasil dan Nginx telah di-restart."
 }
+
 
 # -------------------------------
 # Fungsi untuk setup SSL menggunakan Certbot
