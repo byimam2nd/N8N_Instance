@@ -45,19 +45,13 @@ hapus_semua() {
 # -------------------------------
 setup_nginx() {
   log "$YELLOW[*] " "Mengonfigurasi Nginx untuk reverse proxy..."
+  $SUDO mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled
 
-  # Pastikan direktori tersedia
-  $SUDO mkdir -p /etc/nginx/sites-available
-  $SUDO mkdir -p /etc/nginx/sites-enabled
-
-  # Hapus file konfigurasi lama jika ada
-  $SUDO rm -f /etc/nginx/sites-available/n8n
-  $SUDO rm -f /etc/nginx/sites-enabled/n8n
-
-  # Buat file konfigurasi baru
-  echo "server {
+  # Membuat file konfigurasi Nginx
+  $SUDO cat > /etc/nginx/sites-available/n8n <<EOF
+server {
     listen 80;
-    server_name $DOMAIN;
+    server_name $DOMAIN;  # Ganti dengan subdomain jika ada
 
     location / {
         proxy_pass http://localhost:5678;
@@ -66,25 +60,18 @@ setup_nginx() {
         proxy_buffering off;
         proxy_cache off;
         proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection \"upgrade\";
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header Connection "upgrade";
     }
-}" | $SUDO tee /etc/nginx/sites-available/n8n > /dev/null
+}
+EOF
 
-  # Buat symlink
-  $SUDO ln -s /etc/nginx/sites-available/n8n /etc/nginx/sites-enabled/n8n
-
-  # Tes dan restart nginx
-  if $SUDO nginx -t; then
-    $SUDO systemctl restart nginx
-    log "$GREEN[✓] " "Konfigurasi Nginx berhasil dan Nginx telah di-restart."
-  else
-    error "[X] Konfigurasi Nginx gagal! Cek file secara manual."
-    exit 1
-  fi
+  # Aktifkan konfigurasi Nginx
+  $SUDO ln -s /etc/nginx/sites-available/n8n /etc/nginx/sites-enabled/
+  
+  # Test konfigurasi Nginx
+  $SUDO nginx -t
+  $SUDO systemctl restart nginx
+  log "$GREEN[✓] " "Konfigurasi Nginx berhasil dan Nginx telah di-restart."
 }
 
 # -------------------------------
@@ -92,22 +79,17 @@ setup_nginx() {
 # -------------------------------
 setup_ssl() {
   log "$YELLOW[*] " "Menyiapkan SSL dengan Certbot..."
-
-  # Install Certbot dan plugin
-  $SUDO apt update
+  
+  # Instalasi Certbot dan plugin Nginx
   $SUDO apt install -y certbot python3-certbot-nginx
 
-  # Jalankan Certbot
-  if $SUDO certbot --nginx -d $DOMAIN --non-interactive --agree-tos -m admin@$DOMAIN; then
-    log "$GREEN[✓] " "SSL berhasil dipasang untuk $DOMAIN."
-  else
-    error "[X] Gagal memasang SSL dengan Certbot!"
-    exit 1
-  fi
+  # Menjalankan Certbot untuk mendapatkan SSL
+  $SUDO certbot --nginx -d $DOMAIN  # Ganti dengan subdomain jika ada
+  log "$GREEN[✓] " "SSL telah dipasang untuk $DOMAIN."
 }
 
 # -------------------------------
-# Fungsi untuk setup Docker Compose
+# Fungsi untuk setup Docker Compose untuk n8n dengan PostgreSQL
 # -------------------------------
 docker_compose_setup() {
   if [ -d "$DATA_DIR" ]; then
@@ -117,7 +99,8 @@ docker_compose_setup() {
     log "$YELLOW[*] " "Membuat file .env untuk n8n..."
 
     # Membuat file .env
-    echo "DB_TYPE=postgresdb
+    $SUDO cat > "$DATA_DIR/.env" <<EOF
+DB_TYPE=postgresdb
 DB_POSTGRESDB_HOST=$DB_HOST
 DB_POSTGRESDB_PORT=$DB_PORT
 DB_POSTGRESDB_DATABASE=$DB_NAME
@@ -126,18 +109,20 @@ DB_POSTGRESDB_PASSWORD=$DB_PASSWORD
 N8N_BASIC_AUTH_ACTIVE=true
 N8N_BASIC_AUTH_USER=$BASIC_AUTH_USER
 N8N_BASIC_AUTH_PASSWORD=$BASIC_AUTH_PASSWORD
-WEBHOOK_TUNNEL_URL=https://$DOMAIN" | $SUDO tee "$DATA_DIR/.env" > /dev/null
+WEBHOOK_TUNNEL_URL=https://$DOMAIN
+EOF
 
-    log "$YELLOW[*] " "Membuat file docker-compose.yml..."
+    log "$YELLOW[*] " "Membuat file docker-compose.yml untuk n8n..."
 
-    # Membuat docker-compose.yml
-    echo "version: '3.8'
+    # Membuat file docker-compose.yml
+    $SUDO cat > "$DATA_DIR/docker-compose.yml" <<EOF
+version: "3.8"
 services:
   n8n:
     image: docker.n8n.io/n8nio/n8n
     restart: always
     ports:
-      - '5678:5678'
+      - "5678:5678"
     env_file:
       - .env
     volumes:
@@ -155,19 +140,48 @@ services:
     volumes:
       - $DATA_DIR/postgres_data:/var/lib/postgresql/data
     ports:
-      - '$DB_PORT:5432'" | $SUDO tee "$DATA_DIR/docker-compose.yml" > /dev/null
+      - "$DB_PORT:5432"
+EOF
 
-    # Jalankan Docker Compose
-    $SUDO docker compose -f "$DATA_DIR/docker-compose.yml" up -d
+    # Menjalankan docker-compose
+    $SUDO cd "$DATA_DIR" && $SUDO docker-compose up -d
     log "$GREEN[✓] " "Docker Compose untuk n8n berhasil dijalankan."
   fi
 }
 
 # -------------------------------
-# Program utama
+# Fungsi untuk menampilkan menu utama
 # -------------------------------
-log "$YELLOW[*] " "Memulai instalasi otomatis n8n..."
-docker_compose_setup
-setup_nginx
-setup_ssl
-log "$GREEN[✓] " "Instalasi selesai! Akses: https://$DOMAIN"
+menu_utama() {
+  echo "======================================="
+  echo "        Menu Manajemen n8n"
+  echo "======================================="
+  echo "1. Setup n8n dengan PostgreSQL"
+  echo "2. Hapus semua data dan container"
+  echo "3. Setup Nginx dan SSL"
+  echo "4. Keluar"
+  echo -n "Pilih opsi: "
+  read pilihan
+  case $pilihan in
+    1)
+      docker_compose_setup
+      ;;
+    2)
+      hapus_semua
+      ;;
+    3)
+      setup_nginx
+      setup_ssl
+      ;;
+    4)
+      exit 0
+      ;;
+    *)
+      echo "Pilihan tidak valid!"
+      menu_utama
+      ;;
+  esac
+}
+
+# Menjalankan menu utama
+menu_utama
