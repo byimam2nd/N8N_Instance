@@ -41,54 +41,6 @@ hapus_semua() {
 }
 
 # -------------------------------
-# Fungsi untuk setup Nginx
-# -------------------------------
-setup_nginx() {
-  log "$YELLOW[*] " "Mengonfigurasi Nginx untuk reverse proxy..."
-  $SUDO mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled
-
-  # Membuat file konfigurasi Nginx
-  $SUDO cat > /etc/nginx/sites-available/n8n <<EOF
-server {
-    listen 80;
-    server_name $DOMAIN;  # Ganti dengan subdomain jika ada
-
-    location / {
-        proxy_pass http://localhost:5678;
-        proxy_http_version 1.1;
-        chunked_transfer_encoding off;
-        proxy_buffering off;
-        proxy_cache off;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "upgrade";
-    }
-}
-EOF
-
-  # Aktifkan konfigurasi Nginx
-  $SUDO ln -s /etc/nginx/sites-available/n8n /etc/nginx/sites-enabled/
-  
-  # Test konfigurasi Nginx
-  $SUDO nginx -t
-  $SUDO systemctl restart nginx
-  log "$GREEN[✓] " "Konfigurasi Nginx berhasil dan Nginx telah di-restart."
-}
-
-# -------------------------------
-# Fungsi untuk setup SSL menggunakan Certbot
-# -------------------------------
-setup_ssl() {
-  log "$YELLOW[*] " "Menyiapkan SSL dengan Certbot..."
-  
-  # Instalasi Certbot dan plugin Nginx
-  $SUDO apt install -y certbot python3-certbot-nginx
-
-  # Menjalankan Certbot untuk mendapatkan SSL
-  $SUDO certbot --nginx -d $DOMAIN  # Ganti dengan subdomain jika ada
-  log "$GREEN[✓] " "SSL telah dipasang untuk $DOMAIN."
-}
-
-# -------------------------------
 # Fungsi untuk setup Docker Compose untuk n8n dengan PostgreSQL
 # -------------------------------
 docker_compose_setup() {
@@ -170,10 +122,6 @@ menu_utama() {
       hapus_semua
       ;;
     3)
-      setup_nginx
-      setup_ssl
-      ;;
-    4)
       exit 0
       ;;
     *)
