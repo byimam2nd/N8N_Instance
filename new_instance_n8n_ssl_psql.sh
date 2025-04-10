@@ -42,7 +42,13 @@ install_dep() {
 
 
 nginx_setup() {
+<<<<<<< HEAD
   $SUDO apt install nginx
+=======
+  log "$YELLOW" "Install NGINX"
+  $SUDO apt install nginx
+  log "$YELLOW" "Setup GNINX /etc/nginx/sites-available/n8n.conf"
+>>>>>>> 3804cb26ba0e566a6411ac874a1d196b0aeaab97
   $SUDO tee > "/etc/nginx/sites-available/n8n" <<EOF
       server {
           listen 80;
@@ -59,10 +65,16 @@ nginx_setup() {
           }
       }
 EOF
+<<<<<<< HEAD
+=======
+log "$YELLOW" "Cek file n8n"
+ls /etc/nginx/sites-available/
+>>>>>>> 3804cb26ba0e566a6411ac874a1d196b0aeaab97
 
 NGINX_SITES_ENABLED="/etc/nginx/sites-enabled"
 
 if [ ! -d "$NGINX_SITES_ENABLED" ]; then
+<<<<<<< HEAD
     echo "Direktori $NGINX_SITES_ENABLED belum ada. Membuat sekarang..."
     $SUDO mkdir /etc/nginx/sites-enabled/
     echo "Direktori berhasil dibuat."
@@ -70,6 +82,15 @@ else
     echo "Direktori $NGINX_SITES_ENABLED sudah ada."
     $SUDO ln -s /etc/nginx/sites-available/n8n.conf /etc/nginx/sites-enabled/
     echo "Membuat symlink direktori."
+=======
+    log "$YELLOW" "Direktori $NGINX_SITES_ENABLED belum ada. Membuat sekarang..."
+    $SUDO mkdir /etc/nginx/sites-enabled/
+    log "$GREEN" "Direktori berhasil dibuat."
+else
+    log "$YELLOW" "Direktori $NGINX_SITES_ENABLED sudah ada."
+    $SUDO ln -s /etc/nginx/sites-available/n8n.conf /etc/nginx/sites-enabled/
+    log "$GREEN" "Membuat symlink direktori."
+>>>>>>> 3804cb26ba0e566a6411ac874a1d196b0aeaab97
 fi
 
 $SUDO nginx -t

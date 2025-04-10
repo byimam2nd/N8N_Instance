@@ -1,20 +1,20 @@
-  #!/bin/bash
+#!/bin/bash
 
 # ------------------
 # Bagian atas kode: Konfigurasi
 # ------------------
+
+# Daftar file yang ingin dikecualikan untuk dijadikan menu
+EXCLUDE_FILES=("data_n8n.conf" "executor.sh" "file3.sh")
+
 # URL konfigurasi
 CONFIG_FILE="https://raw.githubusercontent.com/byimam2nd/N8N_Instance/main/data_n8n.conf"
 
 # Load konfigurasi utama
 echo "[INFO] Memuat konfigurasi"
-
 source <(curl -s "$CONFIG_FILE") || { echo "[ERROR] Gagal memuat konfigurasi."; exit 1; }
 
 TOKEN_FILE_URL="$GITHUB_TOKEN_URL"
-
-echo $GITHUB_URL
-echo $GITHUB_TOKEN_URL
 
 # Cek apakah variabel penting terdefinisi
 if [[ -z "$CONFIG_FILE" || -z "$TOKEN_FILE_URL" ]]; then
@@ -27,8 +27,6 @@ echo "[INFO] Mengambil GitHub Token dari: $TOKEN_FILE_URL"
 
 # Ambil GitHub Token yang tersimpan dalam format GITHUB_TOKEN="...."
 GITHUB_TOKEN=$(curl -s "$TOKEN_FILE_URL" | grep GITHUB_TOKEN | cut -d '=' -f2 | tr -d '"')
-
-echo $GITHUB_TOKEN
 
 if [[ -z "$GITHUB_TOKEN" ]]; then
   echo "[ERROR] Token GitHub kosong atau tidak valid!"
@@ -75,13 +73,23 @@ if [[ -z "$RESPONSE" ]]; then
 fi
 
 FILE_NAMES=$(echo "$RESPONSE" | jq -r '.[] | select(.type == "file") | select(.name | endswith(".sh")) | .name')
-if [[ -z "$FILE_NAMES" ]]; then
-  echo "[INFO] Tidak ditemukan file .sh di repositori."
+
+# Filter file .sh yang tidak ada di EXCLUDE_FILES
+FILTERED_FILES=()
+for fname in $FILE_NAMES; do
+  # Menggunakan grep untuk mengecek apakah file ada dalam daftar EXCLUDE_FILES
+  if ! echo "${EXCLUDE_FILES[@]}" | grep -w -q "$fname"; then
+    FILTERED_FILES+=("$fname")
+  fi
+done
+
+if [[ -z "$FILTERED_FILES" ]]; then
+  echo "[INFO] Tidak ada file .sh yang dapat dieksekusi."
   exit 0
 fi
 
 declare -A RAW_FILES
-for fname in $FILE_NAMES; do
+for fname in "${FILTERED_FILES[@]}"; do
   RAW_FILES["$fname"]="$GITHUB_URL/$fname"
 done
 

@@ -25,74 +25,9 @@ WEBHOOK_PATH="$WEBHOOK_PATH"
 EOF
 }
 
-# Fungsi untuk memuat konfigurasi
-function load_config() {
-  echo "Memuat konfigurasi dari $CONFIG_FILE..."
-  if [[ -f "$CONFIG_FILE" ]]; then
-    source "$CONFIG_FILE"
-  else
-    echo "Konfigurasi belum tersedia. Silakan setup ulang konfigurasi terlebih dahulu."
-    main_menu
-  fi
-}
-
-# Fungsi untuk setup ulang konfigurasi
-function setup_config() {
-  if [[ -f "$CONFIG_FILE" ]]; then
-    source "$CONFIG_FILE"
-  fi
-
-  echo "Tekan Enter untuk menggunakan nilai sebelumnya (jika ada):"
-
-  read -p "DB_NAME [${DB_NAME}]: " input
-  DB_NAME=${input:-$DB_NAME}
-
-  read -p "DB_USER [${DB_USER}]: " input
-  DB_USER=${input:-$DB_USER}
-
-  read -s -p "DB_PASSWORD [********]: " input; echo
-  if [[ -n "$input" ]]; then
-    DB_PASSWORD=$input
-  fi
-
-  read -p "DB_PORT [${DB_PORT:-5432}]: " input
-  while [[ ! "$input" =~ ^[0-9]+$ && -n "$input" ]]; do
-    echo "Port harus berupa angka!"
-    read -p "DB_PORT [${DB_PORT:-5432}]: " input
-  done
-  DB_PORT=${input:-${DB_PORT:-5432}}
-
-  read -p "DB_HOST [${DB_HOST:-localhost}]: " input
-  DB_HOST=${input:-${DB_HOST:-localhost}}
-
-  read -p "DOMAIN [${DOMAIN}]: " input
-  DOMAIN=${input:-$DOMAIN}
-
-  read -p "ENCRYPTION_KEY [${ENCRYPTION_KEY}]: " input
-  ENCRYPTION_KEY=${input:-$ENCRYPTION_KEY}
-
-  read -p "GCS_BUCKET_NAME [${GCS_BUCKET_NAME}]: " input
-  GCS_BUCKET_NAME=${input:-$GCS_BUCKET_NAME}
-
-  read -p "TOKEN_TELEGRAM [${TOKEN_TELEGRAM}]: " input
-  TOKEN_TELEGRAM=${input:-$TOKEN_TELEGRAM}
-
-  read -p "PORT [${PORT}]: " input
-  PORT=${input:-$PORT}
-
-  read -p "DUCKDNS_TOKEN [${DUCKDNS_TOKEN}]: " input
-  DUCKDNS_TOKEN=${input:-$DUCKDNS_TOKEN}
-
-  read -p "WEBHOOK_PATH [${WEBHOOK_PATH}]: " input
-  WEBHOOK_PATH=${input:-$WEBHOOK_PATH}
-
-  save_config
-  echo "Konfigurasi disimpan."
-}
-
 # Fungsi setup PostgreSQL
 function setup_postgres() {
-  load_config
+  
 
   echo "=== Setup PostgreSQL ==="
 
@@ -140,7 +75,7 @@ function cek_ip() {
 
 # Fungsi jalankan ulang n8n container
 function run_n8n() {
-  load_config
+  
   echo "Menjalankan ulang container n8n..."
   $SUDO docker stop n8n 2>/dev/null
   $SUDO docker rm n8n 2>/dev/null
@@ -187,7 +122,7 @@ function start_n8n() {
 
 # Fungsi cek koneksi ke DB
 function cek_koneksi_db() {
-  load_config
+  
   echo "Cek koneksi ke PostgreSQL..."
   PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -U "$DB_USER" -p "$DB_PORT" -d "$DB_NAME" -c "\dt"
   if [[ $? -ne 0 ]]; then
@@ -199,7 +134,7 @@ function cek_koneksi_db() {
 
 # Fungsi backup ke GCS
 function backup_to_bucket() {
-  load_config
+  
   BACKUP_FILE="n8n_backup_$(date +%Y%m%d_%H%M%S).sql.gz"
 
   if [[ -z "$GCS_BUCKET_NAME" ]]; then
@@ -233,7 +168,7 @@ function backup_to_bucket() {
 
 # Fungsi restore dari GCS
 function restore_from_bucket() {
-  load_config
+  
 
   if [[ -z "$GCS_BUCKET_NAME" ]]; then
     echo "GCS_BUCKET_NAME belum diset. Setup konfigurasi dulu."
@@ -286,7 +221,7 @@ hapus_backup_lama() {
 
 # Fungsi untuk mengelola webhook Telegram
 webhook_menu() {
-    load_config
+    
     #clear
     echo "======================================="
     echo " 📡 Kelola Webhook Telegram"
@@ -366,7 +301,7 @@ webhook_menu() {
 }
 # Fungsi untuk mengelola DuckDNS
 duckdns_menu() {
-    load_config
+    
     echo "======================================="
     echo " 🦆 Update IP DuckDNS"
     echo "======================================="
@@ -406,32 +341,30 @@ function main_menu() {
     echo "======================================="
     echo "         🛠️  MENU UTAMA n8n TOOL"
     echo "======================================="
-    echo "1) Setup ulang konfigurasi"
-    echo "2) Setup PostgreSQL"
-    echo "3) Jalankan n8n (start container)"
-    echo "4) Set config ulang n8n & Jalankan"
-    echo "5) Cek IP Internal & Eksternal"
-    echo "6) Cek Koneksi DB"
-    echo "7) Backup ke GCS Bucket"
-    echo "8) Restore dari GCS Bucket"
-    echo "9) Hapus Backup lama GCS Bucket lebih dari 10 list"
-    echo "10) Management Telegram Webhook"
-    echo "11) Management DuckDNS"
+    echo "1) Setup PostgreSQL"
+    echo "2) Jalankan n8n (start container)"
+    echo "3) Set config ulang n8n & Jalankan"
+    echo "4) Cek IP Internal & Eksternal"
+    echo "5) Cek Koneksi DB"
+    echo "6) Backup ke GCS Bucket"
+    echo "7) Restore dari GCS Bucket"
+    echo "8) Hapus Backup lama GCS Bucket lebih dari 10 list"
+    echo "9) Management Telegram Webhook"
+    echo "10) Management DuckDNS"
     echo "0) Keluar"
     echo "---------------------------------------"
     read -p "Pilih menu [0-10]: " MENU
     case $MENU in
-      1) setup_config ;;
-      2) setup_postgres ;;
-      3) start_n8n ;;
-      4) run_n8n ;;
-      5) cek_ip ;;
-      6) cek_koneksi_db ;;
-      7) backup_to_bucket ;;
-      8) restore_from_bucket ;;
-      9) hapus_backup_lama ;;
-      10) webhook_menu ;;
-      11) duckdns_menu ;;
+      1) setup_postgres ;;
+      2) start_n8n ;;
+      3) run_n8n ;;
+      4) cek_ip ;;
+      5) cek_koneksi_db ;;
+      6) backup_to_bucket ;;
+      7) restore_from_bucket ;;
+      8) hapus_backup_lama ;;
+      9) webhook_menu ;;
+      10) duckdns_menu ;;
       0) echo "Keluar..."; exit 0 ;;
       *) echo "Pilihan tidak valid!" ;;
     esac
