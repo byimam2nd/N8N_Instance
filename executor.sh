@@ -7,15 +7,15 @@
 CONFIG_FILE="$GITHUB_URL/data_n8n.conf"
 TOKEN_FILE_URL="$GITHUB_TOKEN_URL"
 
+# Load konfigurasi utama
+echo "[INFO] Memuat konfigurasi dari: $CONFIG_FILE"
+source <(curl -s "$CONFIG_FILE") || { echo "[ERROR] Gagal memuat konfigurasi."; exit 1; }
+
 # Cek apakah variabel penting terdefinisi
 if [[ -z "$CONFIG_FILE" || -z "$TOKEN_FILE_URL" ]]; then
   echo -e "[ERROR] GITHUB_URL atau GITHUB_TOKEN_URL belum terdefinisi!"
   exit 1
 fi
-
-# Load konfigurasi utama
-echo "[INFO] Memuat konfigurasi dari: $CONFIG_FILE"
-source <(curl -s "$CONFIG_FILE") || { echo "[ERROR] Gagal memuat konfigurasi."; exit 1; }
 
 # Ambil GitHub Token
 echo "[INFO] Mengambil GitHub Token dari: $TOKEN_FILE_URL"
