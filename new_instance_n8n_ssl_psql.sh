@@ -144,3 +144,5 @@ menu() {
     *) log "$RED[!] " "Pilihan tidak valid." ;;
   esac
 }
+
+menu
