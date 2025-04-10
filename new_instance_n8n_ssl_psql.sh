@@ -45,22 +45,23 @@ nginx_setup() {
   log "$YELLOW" "Install NGINX"
   $SUDO apt install nginx
   log "$YELLOW" "Setup GNINX /etc/nginx/sites-available/n8n.conf"
-  $SUDO tee > "/etc/nginx/sites-available/n8n" <<EOF
-      server {
-          listen 80;
-          server_name $DOMAIN;
-      
-          location / {
-              proxy_pass http://localhost:5678;
-              proxy_http_version 1.1;
-              chunked_transfer_encoding off;
-              proxy_buffering off;
-              proxy_cache off;
-              proxy_set_header Upgrade $http_upgrade;
-              proxy_set_header Connection "upgrade";
-          }
-      }
-EOF
+  echo "
+    server {
+        listen 80;
+        server_name $DOMAIN;
+    
+        location / {
+            proxy_pass http://localhost:5678;
+            proxy_http_version 1.1;
+            chunked_transfer_encoding off;
+            proxy_buffering off;
+            proxy_cache off;
+            proxy_set_header Upgrade \$http_upgrade;
+            proxy_set_header Connection \"upgrade\";
+        }
+    }
+    " | $SUDO tee /etc/nginx/sites-available/n8n.conf > /dev/null
+
 log "$YELLOW" "Cek file n8n"
 ls /etc/nginx/sites-available/
 
@@ -132,8 +133,9 @@ hapus_semua() {
 
 menu() {
   echo -e "${BLUE}========== MENU N8N ==========${RESET}"
-  echo "1. Install n8n + SSL + PostgreSQL"
-  echo "2. Uninstall semua data"
+  echo "1. Install n8n + PostgreSQL"
+  echo "2. Setup SSL"
+  echo "3. Uninstall semua data"
   echo "0. Keluar"
   echo "=============================="
   read -p "Pilih opsi: " OPT
@@ -147,7 +149,8 @@ menu() {
       echo "Akses: https://$DOMAIN"
       echo "Login: $BASIC_AUTH_USER | $BASIC_AUTH_PASSWORD"
       ;;
-    2) hapus_semua ;;
+    2) nginx_setup ;;
+    3) hapus_semua ;;
     0) exit ;;
     *) log "$RED[!] " "Pilihan tidak valid." ;;
   esac
