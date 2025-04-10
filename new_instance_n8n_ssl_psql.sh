@@ -7,104 +7,98 @@
 CONFIG_FILE="https://raw.githubusercontent.com/byimam2nd/N8N_Instance/main/data_n8n.conf"
 source <(curl -s "$CONFIG_FILE")
 
-# ----------------------------
-# Bagian tengah: Fungsi & Logika
-# ----------------------------
-
-log() { echo -e "$1$2${RESET}"; }
-typewriter() { while IFS= read -r -n1 c; do printf "%s" "$c"; sleep "${2:-0.02}"; done <<< "$1"; echo; }
-
-intro() {
-  echo; echo "Deskripsi Proses:"
-  echo "1. Install Docker, Docker Compose, NGINX, Certbot"
-  echo "2. Ambil sertifikat SSL dari Let's Encrypt ($DOMAIN)"
-  echo "3. Setup HTTPS reverse proxy NGINX"
-  echo "4. Hubungkan ke DB Neon PostgreSQL"
-  echo "5. Aktifkan login basic auth ($BASIC_AUTH_USER)"
-  echo "6. Simpan data di $DATA_DIR"
-  echo "7. Otomatis jalankan dan restart container n8n"
-  echo "8. Jalankan ulang dengan: docker start \$(docker ps -aqf name=n8n)"
-  echo
+# -------------------------------
+# Fungsi untuk menampilkan pesan informasi
+# -------------------------------
+function info() {
+    echo -e "\033[0;32m$1\033[0m"
 }
 
-pkg_manager() {
-  command -v apt &> /dev/null && INSTALL="$SUDO apt update && $SUDO apt install -y"
-  command -v dnf &> /dev/null && INSTALL="$SUDO dnf install -y"
-  command -v yum &> /dev/null && INSTALL="$SUDO yum install -y"
-  [[ -z "$INSTALL" ]] && log "$RED[ERROR] " "Package manager tidak ditemukan!" && exit 1
+# -------------------------------
+# Fungsi untuk menampilkan pesan error
+# -------------------------------
+function error() {
+    echo -e "\033[0;31m$1\033[0m"
 }
 
-# Cek apakah dependency sudah terinstal
-install_dep() {
-  pkg_manager
-  if ! command -v docker &> /dev/null; then
-    eval "$INSTALL docker.io docker-compose nginx certbot psmisc" || eval "$INSTALL docker docker-compose nginx certbot psmisc"
-  else
-    log "$GREEN[✓] " "Docker, Docker Compose, NGINX, dan Certbot sudah terinstal."
-  fi
+# -------------------------------
+# Fungsi untuk logging
+# -------------------------------
+function log() {
+    echo -e "$1 $2"
 }
 
-# Cek sertifikat SSL, jika sudah ada, lewati
-get_ssl() {
-  if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
-    log "$GREEN[✓] " "Sertifikat SSL sudah ada, melewati pengambilan sertifikat."
-  else
-    $SUDO fuser -k 80/tcp || true
-    $SUDO systemctl stop nginx
-    $SUDO certbot certonly --standalone -d "$DOMAIN" --non-interactive --agree-tos -m "$EMAIL" || {
-      log "$RED[ERROR] " "Gagal ambil sertifikat SSL."; exit 1; }
-    $SUDO systemctl start nginx
-    log "$GREEN[✓] " "Sertifikat SSL berhasil diambil."
-  fi
+# -------------------------------
+# Fungsi untuk menghapus semua data dan container
+# -------------------------------
+hapus_semua() {
+  log "$YELLOW[*] " "Menghapus semua data dan container..."
+  $SUDO docker rm -f $($SUDO docker ps -aqf name=n8n) 2>/dev/null || true
+  $SUDO rm -rf "$BASE_DIR"
+  $SUDO rm -f /etc/nginx/sites-*/n8n
+  $SUDO nginx -t && $SUDO systemctl restart nginx
+  log "$GREEN[✓] " "Semua data telah dihapus. Sertifikat SSL tetap dipertahankan."
 }
 
-# Fungsi untuk memastikan file sertifikat dan kunci memiliki izin yang benar
-fix_ssl_permissions() {
-  log "$YELLOW[*] " "Memperbaiki izin file sertifikat SSL..."
-  $SUDO chmod 644 /etc/letsencrypt/archive/$DOMAIN/*.pem
-  $SUDO chown root:www-data /etc/letsencrypt/archive/$DOMAIN/*.pem
-  $SUDO chmod 644 /etc/letsencrypt/live/$DOMAIN/*.pem
-  $SUDO chown root:www-data /etc/letsencrypt/live/$DOMAIN/*.pem
-  log "$GREEN[✓] " "Izin file sertifikat telah diperbaiki."
-}
+# -------------------------------
+# Fungsi untuk setup Nginx
+# -------------------------------
+setup_nginx() {
+  log "$YELLOW[*] " "Mengonfigurasi Nginx untuk reverse proxy..."
+  sudo mkdir -p /etc/nginx/sites-available /etc/nginx/sites-enabled
 
-nginx_conf() {
-  if [ -f "/etc/nginx/sites-available/n8n" ]; then
-    log "$GREEN[✓] " "Konfigurasi NGINX untuk n8n sudah ada, melewati konfigurasi."
-  else
-    log "$YELLOW[*] " "Membuat konfigurasi NGINX untuk n8n..."
-    $SUDO tee /etc/nginx/sites-available/n8n > /dev/null <<EOF
+  # Membuat file konfigurasi Nginx
+  cat > /etc/nginx/sites-available/n8n <<EOF
 server {
-  listen 80;
-  server_name $DOMAIN;
-  return 301 https://\$host\$request_uri;
-}
-server {
-  listen 443 ssl;
-  server_name $DOMAIN;
-  ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
-  ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
-  location / {
-    proxy_pass http://localhost:5678;
-    proxy_set_header Host \$host;
-    proxy_set_header X-Real-IP \$remote_addr;
-    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto \$scheme;
-  }
+    listen 80;
+    server_name $DOMAIN;  # Ganti dengan subdomain jika ada
+
+    location / {
+        proxy_pass http://localhost:5678;
+        proxy_http_version 1.1;
+        chunked_transfer_encoding off;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
 }
 EOF
-    $SUDO ln -sf /etc/nginx/sites-available/n8n /etc/nginx/sites-enabled/n8n
-    $SUDO nginx -t && $SUDO systemctl restart nginx
-    log "$GREEN[✓] " "Konfigurasi NGINX berhasil."
-  fi
+
+  # Aktifkan konfigurasi Nginx
+  sudo ln -s /etc/nginx/sites-available/n8n /etc/nginx/sites-enabled/
+  
+  # Test konfigurasi Nginx
+  sudo nginx -t
+  sudo systemctl restart nginx
+  log "$GREEN[✓] " "Konfigurasi Nginx berhasil dan Nginx telah di-restart."
 }
 
+# -------------------------------
+# Fungsi untuk setup SSL menggunakan Certbot
+# -------------------------------
+setup_ssl() {
+  log "$YELLOW[*] " "Menyiapkan SSL dengan Certbot..."
+  
+  # Instalasi Certbot dan plugin Nginx
+  sudo apt install -y certbot python3-certbot-nginx
+
+  # Menjalankan Certbot untuk mendapatkan SSL
+  sudo certbot --nginx -d $DOMAIN  # Ganti dengan subdomain jika ada
+  log "$GREEN[✓] " "SSL telah dipasang untuk $DOMAIN."
+}
+
+# -------------------------------
+# Fungsi untuk setup Docker Compose untuk n8n dengan PostgreSQL
+# -------------------------------
 docker_compose_setup() {
   if [ -d "$DATA_DIR" ]; then
     log "$GREEN[✓] " "Direktori data n8n sudah ada, melewati setup docker-compose."
   else
     mkdir -p "$DATA_DIR"
     log "$YELLOW[*] " "Membuat file .env untuk n8n..."
+
+    # Membuat file .env
     cat > "$DATA_DIR/.env" <<EOF
 DB_TYPE=postgresdb
 DB_POSTGRESDB_HOST=$DB_HOST
@@ -119,6 +113,8 @@ WEBHOOK_TUNNEL_URL=https://$DOMAIN
 EOF
 
     log "$YELLOW[*] " "Membuat file docker-compose.yml untuk n8n..."
+
+    # Membuat file docker-compose.yml
     cat > "$DATA_DIR/docker-compose.yml" <<EOF
 version: "3.8"
 services:
@@ -131,48 +127,61 @@ services:
       - .env
     volumes:
       - $DATA_DIR:/home/node/.n8n
+    depends_on:
+      - postgresdb
+
+  postgresdb:
+    image: postgres:13
+    restart: always
+    environment:
+      POSTGRES_DB: $DB_NAME
+      POSTGRES_USER: $DB_USER
+      POSTGRES_PASSWORD: $DB_PASSWORD
+    volumes:
+      - $DATA_DIR/postgres_data:/var/lib/postgresql/data
+    ports:
+      - "$DB_PORT:5432"
 EOF
+
+    # Menjalankan docker-compose
     cd "$DATA_DIR" && $SUDO docker-compose up -d
     log "$GREEN[✓] " "Docker Compose untuk n8n berhasil dijalankan."
   fi
 }
 
-hapus_semua() {
-  log "$YELLOW[*] " "Menghapus semua data dan container..."
-  $SUDO docker rm -f $($SUDO docker ps -aqf name=n8n) 2>/dev/null || true
-  $SUDO rm -rf "$BASE_DIR"
-  $SUDO rm -f /etc/nginx/sites-*/n8n
-  $SUDO nginx -t && $SUDO systemctl restart nginx
-  log "$GREEN[✓] " "Semua data telah dihapus. Sertifikat SSL tetap dipertahankan."
-}
-
-# ----------------------------
-# Bagian akhir: Menu Interaktif & Eksekusi
-# ----------------------------
-
-menu() {
-  echo -e "${BLUE}========== MENU N8N ==========${RESET}"
-  echo "1. Install n8n + SSL + PostgreSQL"
-  echo "2. Uninstall semua data"
-  echo "0. Keluar"
-  echo "=============================="
-  read -p "Pilih opsi: " OPT
-  case $OPT in
+# -------------------------------
+# Fungsi untuk menampilkan menu utama
+# -------------------------------
+menu_utama() {
+  echo "======================================="
+  echo "        Menu Manajemen n8n"
+  echo "======================================="
+  echo "1. Setup n8n dengan PostgreSQL"
+  echo "2. Hapus semua data dan container"
+  echo "3. Setup Nginx dan SSL"
+  echo "4. Keluar"
+  echo -n "Pilih opsi: "
+  read pilihan
+  case $pilihan in
     1)
-      intro
-      install_dep
-      get_ssl
-      fix_ssl_permissions  # Perbaiki izin file sertifikat SSL
-      nginx_conf
       docker_compose_setup
-      log "$GREEN[✓] " "Instalasi selesai!"
-      echo "Akses: https://$DOMAIN"
-      echo "Login: $BASIC_AUTH_USER | $BASIC_AUTH_PASSWORD"
       ;;
-    2) hapus_semua ;;
-    0) exit ;;
-    *) log "$RED[!] " "Pilihan tidak valid." ;;
+    2)
+      hapus_semua
+      ;;
+    3)
+      setup_nginx
+      setup_ssl
+      ;;
+    4)
+      exit 0
+      ;;
+    *)
+      echo "Pilihan tidak valid!"
+      menu_utama
+      ;;
   esac
 }
 
-menu
+# Menjalankan menu utama
+menu_utama
