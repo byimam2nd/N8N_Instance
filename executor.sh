@@ -13,6 +13,9 @@ source <(curl -s "$CONFIG_FILE") || { echo "[ERROR] Gagal memuat konfigurasi."; 
 
 TOKEN_FILE_URL="$GITHUB_TOKEN_URL"
 
+echo $GITHUB_URL
+echo $GITHUB_TOKEN_URL
+
 # Cek apakah variabel penting terdefinisi
 if [[ -z "$CONFIG_FILE" || -z "$TOKEN_FILE_URL" ]]; then
   echo -e "[ERROR] GITHUB_URL atau GITHUB_TOKEN_URL belum terdefinisi!"
