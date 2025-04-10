@@ -5,11 +5,13 @@
 # ------------------
 # URL konfigurasi
 CONFIG_FILE="https://raw.githubusercontent.com/byimam2nd/N8N_Instance/main/data_n8n.conf"
-TOKEN_FILE_URL="$GITHUB_TOKEN_URL"
 
 # Load konfigurasi utama
-echo "[INFO] Memuat konfigurasi dari: $CONFIG_FILE"
+echo "[INFO] Memuat konfigurasi"
+
 source <(curl -s "$CONFIG_FILE") || { echo "[ERROR] Gagal memuat konfigurasi."; exit 1; }
+
+TOKEN_FILE_URL="$GITHUB_TOKEN_URL"
 
 # Cek apakah variabel penting terdefinisi
 if [[ -z "$CONFIG_FILE" || -z "$TOKEN_FILE_URL" ]]; then
