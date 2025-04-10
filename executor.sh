@@ -26,7 +26,7 @@ fi
 echo "[INFO] Mengambil GitHub Token dari: $TOKEN_FILE_URL"
 
 # Ambil GitHub Token yang tersimpan dalam format GITHUB_TOKEN="...."
-GITHUB_TOKEN=$(curl -s "$TOKEN_FILE_URL")
+GITHUB_TOKEN=$(curl -s "$TOKEN_FILE_URL" | grep GITHUB_TOKEN | cut -d '=' -f2 | tr -d '"')
 
 echo $GITHUB_TOKEN
 
