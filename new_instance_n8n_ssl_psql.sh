@@ -110,8 +110,7 @@ menu_utama() {
   echo "======================================="
   echo "1. Setup n8n dengan PostgreSQL"
   echo "2. Hapus semua data dan container"
-  echo "3. Setup Nginx dan SSL"
-  echo "4. Keluar"
+  echo "3. Keluar"
   echo -n "Pilih opsi: "
   read pilihan
   case $pilihan in
