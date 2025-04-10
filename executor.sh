@@ -3,6 +3,10 @@
 # ------------------
 # Bagian atas kode: Konfigurasi
 # ------------------
+
+# Daftar file yang ingin dikecualikan untuk dijadikan menu
+EXCLUDE_FILES=("data_n8n.conf" "executor.sh" "file3.sh")
+
 # URL konfigurasi
 CONFIG_FILE="https://raw.githubusercontent.com/byimam2nd/N8N_Instance/main/data_n8n.conf"
 
@@ -69,9 +73,6 @@ if [[ -z "$RESPONSE" ]]; then
 fi
 
 FILE_NAMES=$(echo "$RESPONSE" | jq -r '.[] | select(.type == "file") | select(.name | endswith(".sh")) | .name')
-
-# Daftar file yang ingin dikecualikan
-EXCLUDE_FILES=("data_n8n.conf" "file2.sh" "file3.sh")
 
 # Filter file .sh yang tidak ada di EXCLUDE_FILES
 FILTERED_FILES=()
