@@ -70,12 +70,18 @@ EOF
 }
 
 get_ssl() {
-  log "$YELLOW[*] " "Mengambil sertifikat SSL menggunakan Certbot..."
-  $SUDO apt install -y certbot python3-certbot-nginx
-  $SUDO certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos -m "$EMAIL" || {
-    log "$RED[ERROR] " "Gagal ambil sertifikat SSL."; exit 1; }
-  log "$GREEN[✓] " "Sertifikat SSL telah diterapkan untuk $DOMAIN."
+  # Mengecek apakah sertifikat sudah ada
+  if [ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]; then
+    log "$GREEN[✓] " "Sertifikat SSL sudah ada untuk $DOMAIN."
+  else
+    log "$YELLOW[*] " "Mengambil sertifikat SSL menggunakan Certbot..."
+    $SUDO apt install -y certbot python3-certbot-nginx
+    $SUDO certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos -m "$EMAIL" || {
+      log "$RED[ERROR] " "Gagal ambil sertifikat SSL."; exit 1; }
+    log "$GREEN[✓] " "Sertifikat SSL telah diterapkan untuk $DOMAIN."
+  fi
 }
+
 
 docker_compose_setup() {
   mkdir -p "$DATA_DIR"
