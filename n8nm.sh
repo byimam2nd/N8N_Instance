@@ -3,8 +3,6 @@
 # Mengambil data variable dengan raw
 CONFIG_FILE="https://raw.githubusercontent.com/byimam2nd/N8N_Instance/main/data_n8n.conf"
 source <(curl -s "$CONFIG_FILE")
-FUNC_FILE="https://raw.githubusercontent.com/byimam2nd/N8N_Instance/main/universal_lib_func.sh"
-source <(curl -s "$FUNC_FILE")
 
 # Fungsi untuk menyimpan konfigurasi
 function save_config() {
@@ -29,54 +27,54 @@ EOF
 function setup_postgres() {
   
 
-  log "=== Setup PostgreSQL ==="
+  echo "=== Setup PostgreSQL ==="
 
   if ! command -v psql > /dev/null; then
-    log "PostgreSQL belum terpasang. Menginstal..."
+    echo "PostgreSQL belum terpasang. Menginstal..."
     $SUDO apt update && $SUDO apt install -y postgresql postgresql-contrib || {
-      log "Gagal menginstal PostgreSQL. Periksa koneksi atau hak akses."
+      echo "Gagal menginstal PostgreSQL. Periksa koneksi atau hak akses."
       return
     }
   else
-    log "PostgreSQL sudah terpasang."
+    echo "PostgreSQL sudah terpasang."
   fi
 
   $SUDO systemctl enable postgresql
   $SUDO systemctl start postgresql
 
-  log "Cek apakah user '$DB_USER' sudah ada..."
+  echo "Cek apakah user '$DB_USER' sudah ada..."
   USER_EXIST=$($SUDO -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='$DB_USER'")
   if [[ "$USER_EXIST" != "1" ]]; then
-    log "Membuat user '$DB_USER'..."
+    echo "Membuat user '$DB_USER'..."
     $SUDO -u postgres psql -c "CREATE USER $DB_USER WITH PASSWORD '$DB_PASSWORD';"
   else
-    log "User '$DB_USER' sudah ada."
+    echo "User '$DB_USER' sudah ada."
   fi
 
-  log "Cek apakah database '$DB_NAME' sudah ada..."
+  echo "Cek apakah database '$DB_NAME' sudah ada..."
   DB_EXIST=$($SUDO -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='$DB_NAME'")
   if [[ "$DB_EXIST" != "1" ]]; then
-    log "Membuat database '$DB_NAME' dengan owner '$DB_USER'..."
+    echo "Membuat database '$DB_NAME' dengan owner '$DB_USER'..."
     $SUDO -u postgres psql -c "CREATE DATABASE $DB_NAME OWNER $DB_USER;"
   else
-    log "Database '$DB_NAME' sudah ada."
+    echo "Database '$DB_NAME' sudah ada."
   fi
 
-  log "Setup PostgreSQL selesai."
+  echo "Setup PostgreSQL selesai."
 }
 
 # Fungsi cek IP
 function cek_ip() {
-  log "IP Internal:"
+  echo "IP Internal:"
   $SUDO hostname -I
-  log "IP Eksternal:"
+  echo "IP Eksternal:"
   $SUDO curl -s ifconfig.me || curl -s ipinfo.io/ip
 }
 
 # Fungsi jalankan ulang n8n container
 function run_n8n() {
   
-  log "Menjalankan ulang container n8n..."
+  echo "Menjalankan ulang container n8n..."
   $SUDO docker stop n8n 2>/dev/null
   $SUDO docker rm n8n 2>/dev/null
 
@@ -103,32 +101,32 @@ function run_n8n() {
   
   if $SUDO docker ps | grep -q "n8n"; then
   $SUDO docker ps
-  log "n8n sudah berjalan."
+  echo "n8n sudah berjalan."
   else
-    $SUDO docker start n8n && log "n8n berhasil dijalankan."
+    $SUDO docker start n8n && echo "n8n berhasil dijalankan."
   fi
 }
 
 # Fungsi start container
 function start_n8n() {
-  log "Menjalankan container n8n..."
+  echo "Menjalankan container n8n..."
   if $SUDO docker ps | grep -q "n8n"; then
   $SUDO docker ps
-  log "n8n sudah berjalan."
+  echo "n8n sudah berjalan."
   else
-  $SUDO docker start n8n && log "n8n berhasil dijalankan."
+  $SUDO docker start n8n && echo "n8n berhasil dijalankan."
   fi
 }
 
 # Fungsi cek koneksi ke DB
 function cek_koneksi_db() {
   
-  log "Cek koneksi ke PostgreSQL..."
+  echo "Cek koneksi ke PostgreSQL..."
   PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -U "$DB_USER" -p "$DB_PORT" -d "$DB_NAME" -c "\dt"
   if [[ $? -ne 0 ]]; then
-    log "Gagal terkoneksi ke database."
+    echo "Gagal terkoneksi ke database."
   else
-    log "Koneksi database berhasil."
+    echo "Koneksi database berhasil."
   fi
 }
 
@@ -138,32 +136,32 @@ function backup_to_bucket() {
   BACKUP_FILE="n8n_backup_$(date +%Y%m%d_%H%M%S).sql.gz"
 
   if [[ -z "$GCS_BUCKET_NAME" ]]; then
-    log "GCS_BUCKET_NAME belum diset. Setup konfigurasi dulu."
+    echo "GCS_BUCKET_NAME belum diset. Setup konfigurasi dulu."
     return
   fi
 
   if ! command -v gsutil > /dev/null; then
-    log "gsutil belum tersedia. Silakan instal terlebih dahulu (Google Cloud SDK)."
+    echo "gsutil belum tersedia. Silakan instal terlebih dahulu (Google Cloud SDK)."
     return
   fi
 
-  log "=== Backup PostgreSQL ke GCS Bucket ==="
-  log "Membackup database..."
+  echo "=== Backup PostgreSQL ke GCS Bucket ==="
+  echo "Membackup database..."
 
   PGPASSWORD="$DB_PASSWORD" pg_dump -h "$DB_HOST" -U "$DB_USER" -p "$DB_PORT" -d "$DB_NAME" | gzip > "/tmp/$BACKUP_FILE"
 
   if [[ $? -ne 0 ]]; then
-    log "Gagal membackup database. Periksa koneksi dan konfigurasi."
+    echo "Gagal membackup database. Periksa koneksi dan konfigurasi."
     return
   fi
 
-  log "Upload ke bucket ..."
+  echo "Upload ke bucket ..."
   gsutil cp "/tmp/$BACKUP_FILE" "gs://$GCS_BUCKET_NAME/" || {
-    log "Gagal upload ke bucket. Periksa GCS_BUCKET_NAME dan akses gsutil."
+    echo "Gagal upload ke bucket. Periksa GCS_BUCKET_NAME dan akses gsutil."
     return
   }
 
-  log "Backup selesai: $BACKUP_FILE"
+  echo "Backup selesai: $BACKUP_FILE"
 }
 
 # Fungsi restore dari GCS
@@ -171,72 +169,72 @@ function restore_from_bucket() {
   
 
   if [[ -z "$GCS_BUCKET_NAME" ]]; then
-    log "GCS_BUCKET_NAME belum diset. Setup konfigurasi dulu."
+    echo "GCS_BUCKET_NAME belum diset. Setup konfigurasi dulu."
     return
   fi
 
   if ! command -v gsutil > /dev/null; then
-    log "gsutil belum tersedia. Silakan instal terlebih dahulu (Google Cloud SDK)."
+    echo "gsutil belum tersedia. Silakan instal terlebih dahulu (Google Cloud SDK)."
     return
   fi
 
-  log "=== Restore PostgreSQL dari GCS Bucket ==="
-  log "File yang tersedia:"
+  echo "=== Restore PostgreSQL dari GCS Bucket ==="
+  echo "File yang tersedia:"
   gsutil ls "gs://$GCS_BUCKET_NAME/" || return
 
   read -p "Masukkan nama file untuk restore (contoh: n8n_backup_YYYYMMDD_HHMMSS.sql.gz): " BACKUP_FILE
   LOCAL_FILE="/tmp/$BACKUP_FILE"
 
-  log "Mengunduh file dari bucket..."
+  echo "Mengunduh file dari bucket..."
   gsutil cp "gs://$GCS_BUCKET_NAME/$BACKUP_FILE" "$LOCAL_FILE" || {
-    log "Gagal mengunduh file dari bucket."
+    echo "Gagal mengunduh file dari bucket."
     return
   }
 
-  log "Melakukan restore ke database..."
+  echo "Melakukan restore ke database..."
   gunzip -c "$LOCAL_FILE" | PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -U "$DB_USER" -p "$DB_PORT" -d "$DB_NAME"
 }
 
 hapus_backup_lama() {
   source "$CONFIG_FILE"
-  log "Cek dan hapus backup lama di bucket GCS ($GCS_BUCKET_NAME)..."
+  echo "Cek dan hapus backup lama di bucket GCS ($GCS_BUCKET_NAME)..."
 
   BACKUP_LIST=$(gsutil ls -l "gs://$GCS_BUCKET_NAME/" | grep -E 'n8n_backup_.*\.sql\.gz' | sort -k2 | awk '{print $NF}')
-  BACKUP_COUNT=$(log "$BACKUP_LIST" | wc -l)
+  BACKUP_COUNT=$(echo "$BACKUP_LIST" | wc -l)
 
   if [[ "$BACKUP_COUNT" -le 10 ]]; then
-    log "Backup hanya ada $BACKUP_COUNT. Tidak ada yang dihapus."
+    echo "Backup hanya ada $BACKUP_COUNT. Tidak ada yang dihapus."
     return
   fi
 
-  FILES_TO_DELETE=$(log "$BACKUP_LIST" | head -n $(($BACKUP_COUNT - 10)))
-  log "Menghapus $((BACKUP_COUNT - 10)) file backup lama..."
+  FILES_TO_DELETE=$(echo "$BACKUP_LIST" | head -n $(($BACKUP_COUNT - 10)))
+  echo "Menghapus $((BACKUP_COUNT - 10)) file backup lama..."
   for FILE in $FILES_TO_DELETE; do
-    log "-> Menghapus: $FILE"
+    echo "-> Menghapus: $FILE"
     gsutil rm "$FILE"
   done
 
-  log "Selesai menghapus backup lama. Backup tersisa: 10."
+  echo "Selesai menghapus backup lama. Backup tersisa: 10."
 }
 
 # Fungsi untuk mengelola webhook Telegram
 webhook_menu() {
     
     #clear
-    log "======================================="
-    log " 📡 Kelola Webhook Telegram"
-    log "======================================="
-    log "1) Cek Webhook"
-    log "2) Hapus Webhook"
-    log "3) Atur Webhook"
-    log "4) Kembali"
-    log "======================================="
+    echo "======================================="
+    echo " 📡 Kelola Webhook Telegram"
+    echo "======================================="
+    echo "1) Cek Webhook"
+    echo "2) Hapus Webhook"
+    echo "3) Atur Webhook"
+    echo "4) Kembali"
+    echo "======================================="
     read -p "Masukkan pilihan [1-4]: " WEBHOOK_OPTION
     
     if ! command -v jq > /dev/null; then
-      log "jq belum terpasang. Menginstal..."
+      echo "jq belum terpasang. Menginstal..."
       $SUDO apt install -y jq || {
-      log "Gagal menginstal jq!"
+      echo "Gagal menginstal jq!"
       return
       }
     fi
@@ -244,22 +242,22 @@ webhook_menu() {
     case $WEBHOOK_OPTION in
         1)
             API_URL="https://api.telegram.org/bot$TOKEN_TELEGRAM/getWebhookInfo"
-            log "🔍 Mengambil informasi webhook..."
+            echo "🔍 Mengambil informasi webhook..."
             curl -s "$API_URL" | jq .
             sleep 2
             webhook_menu
         ;;
         2)
-            log "⚠️ Anda akan menghapus webhook. Lanjutkan?"
+            echo "⚠️ Anda akan menghapus webhook. Lanjutkan?"
             read -p "(y/n): " CONFIRM
             if [[ "$CONFIRM" != "y" && "$CONFIRM" != "" ]]; then
-                log "❌ Operasi dibatalkan."
+                echo "❌ Operasi dibatalkan."
                 sleep 1
                 webhook_menu
             fi
 
             API_URL="https://api.telegram.org/bot$TOKEN_TELEGRAM/deleteWebhook"
-            log "❌ Menghapus webhook..."
+            echo "❌ Menghapus webhook..."
             curl -s "$API_URL" | jq .
             sleep 2
             webhook_menu
@@ -267,70 +265,70 @@ webhook_menu() {
         3)
             PROTOCOL="https"
             WEBHOOK_URL="$PROTOCOL://$DOMAIN$WEBHOOK_PATH"
-            log "======================================="
-            log "🔗 URL Webhook Target: $WEBHOOK_URL"
-            log "======================================="
+            echo "======================================="
+            echo "🔗 URL Webhook Target: $WEBHOOK_URL"
+            echo "======================================="
             API_URL="https://api.telegram.org/bot$TOKEN_TELEGRAM/setWebhook?url=$WEBHOOK_URL"
-            log "🔍 Permintaan ke Telegram API:"
-            log "$API_URL"
-            log "======================================="
+            echo "🔍 Permintaan ke Telegram API:"
+            echo "$API_URL"
+            echo "======================================="
             
             read -p "Lanjutkan mengatur webhook ini? (y/n): " CONFIRM
             if [[ "$CONFIRM" != "y" && "$CONFIRM" != "" ]]; then
-                log "❌ Operasi dibatalkan."
+                echo "❌ Operasi dibatalkan."
                 sleep 1
                 webhook_menu
             fi
 
             RESPONSE=$(curl -s "$API_URL")
 
-            log "📨 Respons dari Telegram:"
-            log "$RESPONSE" | jq .
+            echo "📨 Respons dari Telegram:"
+            echo "$RESPONSE" | jq .
 
-            if log "$RESPONSE" | grep -q '"ok":true'; then
-                log "✅ Webhook berhasil diatur!"
+            if echo "$RESPONSE" | grep -q '"ok":true'; then
+                echo "✅ Webhook berhasil diatur!"
             else
-                log "❌ Gagal mengatur webhook!"
+                echo "❌ Gagal mengatur webhook!"
             fi
             sleep 2
             webhook_menu
         ;;
         4) main_menu ;;
-        *) log "❌ Pilihan tidak valid!"; sleep 1; webhook_menu ;;
+        *) echo "❌ Pilihan tidak valid!"; sleep 1; webhook_menu ;;
     esac
 }
 # Fungsi untuk mengelola DuckDNS
 duckdns_menu() {
     
-    log "======================================="
-    log " 🦆 Update IP DuckDNS"
-    log "======================================="
+    echo "======================================="
+    echo " 🦆 Update IP DuckDNS"
+    echo "======================================="
             # Ambil IP eksternal otomatis
             external_ip=$(curl -s ifconfig.me)
             if [[ -z "$external_ip" ]]; then
-                log "❌ Gagal mendapatkan IP eksternal!"
+                echo "❌ Gagal mendapatkan IP eksternal!"
                 sleep 2
                 main_menu
             fi
 
             API_URL="https://www.duckdns.org/update?domains=$DOMAIN&token=$DUCKDNS_TOKEN&ip=$external_ip"
-            log "======================================="
-            log "🌐 IP Eksternal: $external_ip"
-            log "🔄 URL Update DuckDNS: $API_URL"
-            log "======================================="
+            echo "======================================="
+            echo "🌐 IP Eksternal: $external_ip"
+            echo "🔄 URL Update DuckDNS: $API_URL"
+            echo "======================================="
 
             read -p "Lanjutkan update DuckDNS? (y/n): " CONFIRM
             if [[ "$CONFIRM" != "y" && "$CONFIRM" != "" ]]; then
-                log "❌ Operasi dibatalkan."
+                echo "❌ Operasi dibatalkan."
                 sleep 1
                 main_menu
             fi
 
             response=$(curl -s "$API_URL")
             if [[ "$response" == "OK" ]]; then
-                log "✅ DuckDNS berhasil diperbarui!"
+                echo "✅ DuckDNS berhasil diperbarui!"
             else
-                log "❌ Gagal update DuckDNS. Respon: $response"
+                echo "❌ Gagal update DuckDNS. Respon: $response"
             fi
             sleep 2
             main_menu
@@ -338,21 +336,21 @@ duckdns_menu() {
 
 function main_menu() {
   while true; do
-    log "======================================="
-    log "         🛠️  MENU UTAMA n8n TOOL"
-    log "======================================="
-    log "1) Setup PostgreSQL"
-    log "2) Jalankan n8n (start container)"
-    log "3) Set config ulang n8n & Jalankan"
-    log "4) Cek IP Internal & Eksternal"
-    log "5) Cek Koneksi DB"
-    log "6) Backup ke GCS Bucket"
-    log "7) Restore dari GCS Bucket"
-    log "8) Hapus Backup lama GCS Bucket lebih dari 10 list"
-    log "9) Management Telegram Webhook"
-    log "10) Management DuckDNS"
-    log "0) Keluar"
-    log "---------------------------------------"
+    echo "======================================="
+    echo "         🛠️  MENU UTAMA n8n TOOL"
+    echo "======================================="
+    echo "1) Setup PostgreSQL"
+    echo "2) Jalankan n8n (start container)"
+    echo "3) Set config ulang n8n & Jalankan"
+    echo "4) Cek IP Internal & Eksternal"
+    echo "5) Cek Koneksi DB"
+    echo "6) Backup ke GCS Bucket"
+    echo "7) Restore dari GCS Bucket"
+    echo "8) Hapus Backup lama GCS Bucket lebih dari 10 list"
+    echo "9) Management Telegram Webhook"
+    echo "10) Management DuckDNS"
+    echo "0) Keluar"
+    echo "---------------------------------------"
     read -p "Pilih menu [0-10]: " MENU
     case $MENU in
       1) setup_postgres ;;
@@ -365,8 +363,8 @@ function main_menu() {
       8) hapus_backup_lama ;;
       9) webhook_menu ;;
       10) duckdns_menu ;;
-      0) log "Keluar..."; exit 0 ;;
-      *) log "Pilihan tidak valid!" ;;
+      0) echo "Keluar..."; exit 0 ;;
+      *) echo "Pilihan tidak valid!" ;;
     esac
   done
 }
