@@ -16,32 +16,26 @@ source <(curl -s "$FUNC_FILE")
 # ===============================
 
 install_docker() {
-  if ! command -v docker &> /dev/null; then
-    log "$YELLOW" "Menginstal Docker..."
-    $SUDO apt update
-    $SUDO apt install -y docker.io
-    log "$GREEN" "Docker berhasil diinstal."
-  else
-    log "$CYAN" "Docker sudah terpasang."
-  fi
+  log "$YELLOW" "Remove incompatible or out of date Docker implementations if they exist"
+  for pkg in docker.io docker-doc docker-compose docker-compose-v2 podman-docker containerd runc; do sudo apt-get remove $pkg; done
+  log "$YELLOW" "Install pre requirment packages"
+  sudo apt-get update
+  sudo apt-get install ca-certificates curl
+  log "$YELLOW" "Download the repo signing key"
+  sudo install -m 0755 -d /etc/apt/keyrings
+  sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+  sudo chmod a+r /etc/apt/keyrings/docker.asc
+  log "$YELLOW" "Configure the repository"
+  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+  log "$GREEN" "Update and install Docker and Docker Compose"
+  sudo apt-get update
+  sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 }
 
-install_docker_compose() {
-  if ! command -v docker-compose &> /dev/null; then
-    log "$YELLOW" "Menginstal docker-compose Plugin..."
-    $SUDO apt install -y docker-compose-plugin
-    $SUDO curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-    $SUDO curl -L "https://github.com/docker/compose/releases/download/v2.10.0/docker-compose-linux-x86_64" -o /usr/local/bin/docker-compose
-    $SUDO chmod +x /usr/local/bin/docker-compose
-    $SUDO chmod +x /usr/local/bin/docker-compose
-    # Docker V1
-    docker-compose --version
-    # Docker V2
-    docker compose version
-    log "$GREEN" "docker-compose berhasil diinstal."
-  else
-    log "$CYAN" "docker-compose sudah terpasang."
-  fi
+setup_docker() {
+  log "$BLUE" "chmod 600 for .../data/config"
+  $SUDO chmod 600 /home/byimam2nd/n8n_instance/data/config
 }
 
 buat_docker_compose() {
@@ -145,7 +139,7 @@ case $opsi in
   1)
     log "$CYAN" "=== PROSES INSTALL n8n INSTANCE ==="
     install_docker
-    install_docker_compose
+    setup_docker
     buat_docker_compose
     jalankan_docker_compose
     log "$MAGENTA" "✅ n8n siap diakses di: https://${DOMAIN}"
