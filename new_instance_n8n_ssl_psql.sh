@@ -93,7 +93,7 @@ services:
       - GENERIC_TIMEZONE=Asia/Jakarta
       - N8N_ENCRYPTION_KEY=${ENCRYPTION_KEY}
     ports:
-      #- "${PORT}:${PORT}"
+      - "${PORT}:${PORT}"
     volumes:
       - ${DATA_DIR}:/home/node/.n8n
     labels:
