@@ -4,8 +4,6 @@
 CONFIG_FILE="https://raw.githubusercontent.com/byimam2nd/N8N_Instance/main/data_n8n.conf"
 source <(curl -s "$CONFIG_FILE")
 
-sudo_controller
-
 # Fungsi untuk menyimpan konfigurasi
 function save_config() {
   cat <<EOF > "$CONFIG_FILE"
