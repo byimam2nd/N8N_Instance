@@ -75,7 +75,7 @@ services:
     container_name: n8n
     restart: always
     environment:
-      - DB_TYPE=postgresdb
+      - DB_TYPE=postgres
       - DB_POSTGRESDB_HOST=${DB_HOST}
       - DB_POSTGRESDB_PORT=${DB_PORT}
       - DB_POSTGRESDB_DATABASE=${DB_NAME}
