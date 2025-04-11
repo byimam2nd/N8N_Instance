@@ -1,159 +1,118 @@
 #!/bin/bash
 
-# ----------------------------
-# Bagian atas: Variabel & Konfigurasi
-# ----------------------------
-
-# Mengambil data variable dengan raw
-CONFIG_FILE="https://raw.githubusercontent.com/byimam2nd/N8N_Instance/main/data_n8n.conf"
-source <(curl -s "$CONFIG_FILE")
-
-# ----------------------------
-# Bagian tengah: Fungsi & Logika
-# ----------------------------
-
-log() { echo -e "$1$2${RESET}"; }
-typewriter() { while IFS= read -r -n1 c; do printf "%s" "$c"; sleep "${2:-0.02}"; done <<< "$1"; echo; }
-
-intro() {
-  echo; echo "Deskripsi Proses:"
-  echo "1. Install Docker, Docker Compose, NGINX, Certbot"
-  echo "2. Ambil sertifikat SSL dari Let's Encrypt ($DOMAIN)"
-  echo "3. Setup HTTPS reverse proxy NGINX"
-  echo "4. Hubungkan ke DB Neon PostgreSQL"
-  echo "5. Aktifkan login basic auth ($BASIC_AUTH_USER)"
-  echo "6. Simpan data di $DATA_DIR"
-  echo "7. Otomatis jalankan dan restart container n8n"
-  echo "8. Jalankan ulang dengan: docker start \$(docker ps -aqf name=n8n)"
-  echo
-}
-
-pkg_manager() {
-  command -v apt &> /dev/null && INSTALL="$SUDO apt update && $SUDO apt install -y"
-  command -v dnf &> /dev/null && INSTALL="$SUDO dnf install -y"
-  command -v yum &> /dev/null && INSTALL="$SUDO yum install -y"
-  [[ -z "$INSTALL" ]] && log "$RED[ERROR] " "Package manager tidak ditemukan!" && exit 1
-}
-
-install_dep() {
-  pkg_manager
-  eval "$INSTALL docker.io docker-compose nginx certbot psmisc" || eval "$INSTALL docker docker-compose nginx certbot psmisc"
-}
-
-
-nginx_setup() {
-  log "$YELLOW" "Install NGINX"
-  $SUDO apt install nginx
-  log "$YELLOW" "Setup GNINX /etc/nginx/sites-available/n8n.conf"
-  echo "
-    server {
-        listen 80;
-        server_name $DOMAIN;
-    
-        location / {
-            proxy_pass http://localhost:5678;
-            proxy_http_version 1.1;
-            chunked_transfer_encoding off;
-            proxy_buffering off;
-            proxy_cache off;
-            proxy_set_header Upgrade \$http_upgrade;
-            proxy_set_header Connection \"upgrade\";
-        }
-    }
-    " | $SUDO tee /etc/nginx/sites-available/n8n.conf > /dev/null
-
-log "$YELLOW" "Cek file n8n"
-ls /etc/nginx/sites-available/
-
-NGINX_SITES_ENABLED="/etc/nginx/sites-enabled"
-
-if [ ! -d "$NGINX_SITES_ENABLED" ]; then
-    log "$YELLOW" "Direktori $NGINX_SITES_ENABLED belum ada. Membuat sekarang..."
-    $SUDO mkdir /etc/nginx/sites-enabled/
-    log "$GREEN" "Direktori berhasil dibuat."
+# ===============================
+# BAGIAN ATAS: VARIABEL & VALUE
+# ===============================
+CONFIG_FILE="./data_n8n.conf"
+if [ -f "$CONFIG_FILE" ]; then
+  source "$CONFIG_FILE"
 else
-    log "$YELLOW" "Direktori $NGINX_SITES_ENABLED sudah ada."
-    $SUDO ln -s /etc/nginx/sites-available/n8n.conf /etc/nginx/sites-enabled/
-    log "$GREEN" "Membuat symlink direktori."
+  echo "File konfigurasi tidak ditemukan!"
+  exit 1
 fi
 
-$SUDO nginx -t
-$SUDO systemctl restart nginx
-$SUDO apt install certbot python3-certbot-nginx
-sudo certbot --nginx -d $DOMAIN
+log() { echo -e "$1$2${RESET}"; }
+
+# ===============================
+# BAGIAN TENGAH: FUNGSI & LOGIKA
+# ===============================
+
+install_docker() {
+  if ! command -v docker &> /dev/null; then
+    log "$YELLOW" "Menginstal Docker..."
+    $SUDO apt update
+    $SUDO apt install -y docker.io
+    log "$GREEN" "Docker berhasil diinstal."
+  else
+    log "$CYAN" "Docker sudah terpasang."
+  fi
 }
 
-docker_compose_setup() {
-  mkdir -p "$DATA_DIR"
+install_docker_compose() {
+  if ! command -v docker compose &> /dev/null; then
+    log "$YELLOW" "Menginstal Docker Compose Plugin..."
+    $SUDO apt install -y docker-compose-plugin
+    log "$GREEN" "Docker Compose berhasil diinstal."
+  else
+    log "$CYAN" "Docker Compose sudah terpasang."
+  fi
+}
 
-  # Buat file .env
-  cat > "$DATA_DIR/.env" <<EOF
-DB_TYPE=postgresdb
-DB_POSTGRESDB_HOST=$DB_HOST
-DB_POSTGRESDB_PORT=$DB_PORT
-DB_POSTGRESDB_DATABASE=$DB_NAME
-DB_POSTGRESDB_USER=$DB_USER
-DB_POSTGRESDB_PASSWORD=$DB_PASSWORD
-N8N_BASIC_AUTH_ACTIVE=true
-N8N_BASIC_AUTH_USER=$BASIC_AUTH_USER
-N8N_BASIC_AUTH_PASSWORD=$BASIC_AUTH_PASSWORD
-WEBHOOK_TUNNEL_URL=https://$DOMAIN
-EOF
+buat_docker_compose() {
+  log "$BLUE" "Membuat direktori $BASE_DIR dan file docker-compose.yml..."
+  mkdir -p "$BASE_DIR"
+  cat > "$BASE_DIR/docker-compose.yml" <<EOF
+version: '3.8'
 
-  # Buat docker-compose.yml
-  cat > "$DATA_DIR/docker-compose.yml" <<EOF
-version: "3.8"
 services:
-  n8n:
-    container_name: n8n  # Nama container yang diinginkan
-    image: docker.n8n.io/n8nio/n8n
+  traefik:
+    image: traefik:latest
+    container_name: traefik
     restart: always
+    command:
+      - "--providers.docker=true"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.duckdns.acme.httpchallenge=true"
+      - "--certificatesresolvers.duckdns.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.duckdns.acme.email=${EMAIL}"
+      - "--certificatesresolvers.duckdns.acme.storage=/letsencrypt/acme.json"
     ports:
-      - "5678:5678"
-    env_file:
-      - .env
+      - "80:80"
+      - "443:443"
     volumes:
-      - $DATA_DIR:/home/node/.n8n
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${SSL_DIR}:/letsencrypt
+
+  n8n:
+    image: n8nio/n8n
+    container_name: n8n
+    restart: always
+    environment:
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=${DB_HOST}
+      - DB_POSTGRESDB_PORT=${DB_PORT}
+      - DB_POSTGRESDB_DATABASE=${DB_NAME}
+      - DB_POSTGRESDB_USER=${DB_USER}
+      - DB_POSTGRESDB_PASSWORD=${DB_PASSWORD}
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${BASIC_AUTH_USER}
+      - N8N_BASIC_AUTH_PASSWORD=${BASIC_AUTH_PASSWORD}
+      - N8N_HOST=${DOMAIN}
+      - N8N_PORT=5678
+      - WEBHOOK_URL=https://${DOMAIN}
+      - N8N_PROTOCOL=https
+      - NODE_ENV=production
+      - GENERIC_TIMEZONE=Asia/Jakarta
+      - N8N_ENCRYPTION_KEY=${ENCRYPTION_KEY}
+    ports:
+      - "${PORT}:${PORT}"
+    volumes:
+      - ${DATA_DIR}:/home/node/.n8n
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.n8n.rule=Host(\`${DOMAIN}\`)"
+      - "traefik.http.routers.n8n.entrypoints=websecure"
+      - "traefik.http.routers.n8n.tls.certresolver=duckdns"
+      - "traefik.http.services.n8n.loadbalancer.server.port=${PORT}"
 EOF
 
-  cd "$DATA_DIR" && $SUDO docker-compose up -d
+  log "$GREEN" "File docker-compose.yml berhasil dibuat."
 }
 
-hapus_semua() {
-  log "$YELLOW[*] " "Menghapus semua data dan container..."
-  $SUDO docker rm -f $($SUDO docker ps -aqf name=n8n) 2>/dev/null || true
-  $SUDO rm -rf "$BASE_DIR"
-  $SUDO rm -f /etc/nginx/sites-*/n8n
-  $SUDO nginx -t && $SUDO systemctl restart nginx
-  log "$GREEN[✓] " "Semua data telah dihapus. Sertifikat SSL tetap dipertahankan."
+jalankan_docker_compose() {
+  log "$BLUE" "Menjalankan docker compose up -d..."
+  cd "$BASE_DIR"
+  $SUDO docker compose up -d
+  log "$GREEN" "n8n & Traefik berhasil dijalankan."
 }
 
-# ----------------------------
-# Bagian akhir: Menu Interaktif & Eksekusi
-# ----------------------------
-
-menu() {
-  echo -e "${BLUE}========== MENU N8N ==========${RESET}"
-  echo "1. Install n8n + PostgreSQL"
-  echo "2. Setup SSL"
-  echo "3. Uninstall semua data"
-  echo "0. Keluar"
-  echo "=============================="
-  read -p "Pilih opsi: " OPT
-  case $OPT in
-    1)
-      intro
-      install_dep
-      docker_compose_setup
-      log "$GREEN[✓] " "Instalasi selesai!"
-      echo "Akses: https://$DOMAIN"
-      echo "Login: $BASIC_AUTH_USER | $BASIC_AUTH_PASSWORD"
-      ;;
-    2) nginx_setup ;;
-    3) hapus_semua ;;
-    0) exit ;;
-    *) log "$RED[!] " "Pilihan tidak valid." ;;
-  esac
-}
-
-menu
+# ===============================
+# BAGIAN AKHIR: UI & EKSEKUSI
+# ===============================
+log "$CYAN" "=== PROSES INSTALL n8n INSTANCE ==="
+install_docker
+install_docker_compose
+buat_docker_compose
+jalankan_docker_compose
+log "$MAGENTA" "✅ n8n siap diakses di: https://${DOMAIN}"
