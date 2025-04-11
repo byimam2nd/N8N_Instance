@@ -81,6 +81,7 @@ services:
       - DB_POSTGRESDB_DATABASE=${DB_NAME}
       - DB_POSTGRESDB_USER=${DB_USER}
       - DB_POSTGRESDB_PASSWORD=${DB_PASSWORD}
+      - DB_POSTGRESDB_SSL=true
       - N8N_BASIC_AUTH_ACTIVE=true
       - N8N_BASIC_AUTH_USER=${BASIC_AUTH_USER}
       - N8N_BASIC_AUTH_PASSWORD=${BASIC_AUTH_PASSWORD}
@@ -115,12 +116,51 @@ jalankan_docker_compose() {
   log "$GREEN" "n8n & Traefik berhasil dijalankan."
 }
 
+update_docker_compose() {
+  log "$BLUE" "Memperbarui docker-compose.yml..."
+  $SUDO docker stop n8n traefik
+  $SUDO docker rm n8n traefik
+
+  # Backup
+  cp "$BASE_DIR/docker-compose.yml" "$BASE_DIR/docker-compose.yml.bak"
+
+  # Buat ulang dan jalankan
+  buat_docker_compose
+  jalankan_docker_compose
+}
+
 # ===============================
 # BAGIAN AKHIR: UI & EKSEKUSI
 # ===============================
-log "$CYAN" "=== PROSES INSTALL n8n INSTANCE ==="
-install_docker
-install_docker_compose
-buat_docker_compose
-jalankan_docker_compose
+
+echo -e "${CYAN}"
+echo "===== MENU n8n INSTANCE ====="
+echo "1. Install n8n"
+echo "2. Update docker-compose.yml"
+echo "3. Keluar"
+echo -ne "${RESET}Pilih opsi [1-3]: "
+read opsi
+
+case $opsi in
+  1)
+    log "$CYAN" "=== PROSES INSTALL n8n INSTANCE ==="
+    install_docker
+    install_docker_compose
+    buat_docker_compose
+    jalankan_docker_compose
+    log "$MAGENTA" "✅ n8n siap diakses di: https://${DOMAIN}"
+    ;;
+  2)
+    update_docker_compose
+    ;;
+  3)
+    log "$RED" "Keluar dari program."
+    exit 0
+    ;;
+  *)
+    log "$RED" "Opsi tidak valid."
+    ;;
+esac
+
 log "$MAGENTA" "✅ n8n siap diakses di: https://${DOMAIN}"
+log "$GREEN" "✅ dan cek dengan `sudo docker logs n8n`"
