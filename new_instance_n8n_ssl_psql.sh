@@ -27,12 +27,12 @@ install_docker() {
 }
 
 install_docker_compose() {
-  if ! docker compose version &> /dev/null; then
-    log "$YELLOW" "Menginstal Docker Compose plugin (V2)..."
+  if ! command -v docker-compose &> /dev/null; then
+    log "$YELLOW" "Menginstal docker-compose Plugin..."
     $SUDO apt install -y docker-compose-plugin
-    log "$GREEN" "Docker Compose plugin berhasil diinstal."
+    log "$GREEN" "docker-compose berhasil diinstal."
   else
-    log "$CYAN" "Docker Compose plugin sudah terpasang."
+    log "$CYAN" "docker-compose sudah terpasang."
   fi
 }
 
