@@ -48,8 +48,6 @@ buat_docker_compose() {
   log "$BLUE" "Membuat direktori $BASE_DIR dan file docker-compose.yml..."
   mkdir -p "$BASE_DIR"
   cat > "$BASE_DIR/docker-compose.yml" <<EOF
-version: '3.8'
-
 services:
   traefik:
     image: traefik:latest
@@ -75,23 +73,25 @@ services:
     container_name: n8n
     restart: always
     environment:
-      - DB_TYPE=postgres
+      - DB_TYPE=postgresdb
       - DB_POSTGRESDB_HOST=${DB_HOST}
       - DB_POSTGRESDB_PORT=${DB_PORT}
       - DB_POSTGRESDB_DATABASE=${DB_NAME}
       - DB_POSTGRESDB_USER=${DB_USER}
       - DB_POSTGRESDB_PASSWORD=${DB_PASSWORD}
-      - DB_POSTGRESDB_SSL_MODE=require
+      - DB_POSTGRESDB_SSL_REJECT_UNAUTHORIZED=false
       - N8N_BASIC_AUTH_ACTIVE=true
       - N8N_BASIC_AUTH_USER=${BASIC_AUTH_USER}
       - N8N_BASIC_AUTH_PASSWORD=${BASIC_AUTH_PASSWORD}
       - N8N_HOST=${DOMAIN}
-      - N8N_PORT=5678
+      - N8N_PORT=${PORT}
       - WEBHOOK_URL=https://${DOMAIN}
       - N8N_PROTOCOL=https
       - NODE_ENV=production
       - GENERIC_TIMEZONE=Asia/Jakarta
       - N8N_ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+      - N8N_RUNNERS_ENABLED=true
     ports:
       - "${PORT}:${PORT}"
     volumes:
