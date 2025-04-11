@@ -27,12 +27,12 @@ install_docker() {
 }
 
 install_docker_compose() {
-  if ! command -v docker compose &> /dev/null; then
-    log "$YELLOW" "Menginstal Docker Compose Plugin..."
+  if ! command -v docker-compose &> /dev/null; then
+    log "$YELLOW" "Menginstal docker-compose Plugin..."
     $SUDO apt install -y docker-compose-plugin
-    log "$GREEN" "Docker Compose berhasil diinstal."
+    log "$GREEN" "docker-compose berhasil diinstal."
   else
-    log "$CYAN" "Docker Compose sudah terpasang."
+    log "$CYAN" "docker-compose sudah terpasang."
   fi
 }
 
@@ -99,9 +99,9 @@ EOF
 }
 
 jalankan_docker_compose() {
-  log "$BLUE" "Menjalankan docker compose up -d..."
+  log "$BLUE" "Menjalankan docker-compose up -d..."
   cd "$BASE_DIR"
-  $SUDO docker compose up -d
+  $SUDO docker-compose up -d
   log "$GREEN" "n8n & Traefik berhasil dijalankan."
 }
 
