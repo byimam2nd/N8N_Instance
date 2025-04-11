@@ -3,8 +3,6 @@
 # Mengambil data variable dengan raw
 CONFIG_FILE="https://raw.githubusercontent.com/byimam2nd/N8N_Instance/main/data_n8n.conf"
 source <(curl -s "$CONFIG_FILE")
-FUNC_FILE="https://raw.githubusercontent.com/byimam2nd/N8N_Instance/main/universal_lib_func.sh"
-source <(curl -s "$FUNC_FILE")
 
 # -------------------------------
 # Fungsi Kirim Telegram
@@ -20,7 +18,7 @@ kirim_telegram() {
 # Fungsi Hapus Instalasi
 # -------------------------------
 hapus_instalasi() {
-    log -e "${YELLOW}>> Menghapus service dan file terkait...${RESET}"
+    echo -e "${YELLOW}>> Menghapus service dan file terkait...${RESET}"
     $SUDO systemctl stop $SERVICE_NAME
     $SUDO systemctl disable $SERVICE_NAME
     $SUDO rm -f "$SERVICE_FILE"
@@ -29,7 +27,7 @@ hapus_instalasi() {
     $SUDO systemctl daemon-reload
     $SUDO systemctl daemon-reexec
 
-    log -e "${GREEN}✓ Otomatisasi berhasil dihapus.${RESET}"
+    echo -e "${GREEN}✓ Otomatisasi berhasil dihapus.${RESET}"
     kirim_telegram "🛑 *[IP Watchdog]* Otomatisasi berhasil dihentikan dan semua file dihapus dari sistem."
     exit 0
 }
@@ -65,12 +63,12 @@ while true; do
     CURRENT_IP=$(dig +short myip.opendns.com @resolver1.opendns.com)
 
     if [ ! -f "$IP_FILE" ]; then
-        log "$CURRENT_IP" > "$IP_FILE"
+        echo "$CURRENT_IP" > "$IP_FILE"
         send_telegram "👀 *[IP Watcher]* Pertama kali mendeteksi IP: \`$CURRENT_IP\`"
     else
         LAST_IP=$(cat "$IP_FILE")
         if [ "$CURRENT_IP" != "$LAST_IP" ]; then
-            log "$CURRENT_IP" > "$IP_FILE"
+            echo "$CURRENT_IP" > "$IP_FILE"
             curl -s "https://www.duckdns.org/update?domains=$DOMAIN&token=$DUCKDNS_TOKEN&ip=$CURRENT_IP" > /dev/null
 
             TEXT="⚠️ *Perubahan IP Terdeteksi!*
@@ -110,7 +108,7 @@ EOF
 # -------------------------------
 # Reload & Aktifkan Service
 # -------------------------------
-log -e "${CYAN}>> Menyiapkan service systemd...${RESET}"
+echo -e "${CYAN}>> Menyiapkan service systemd...${RESET}"
 $SUDO systemctl daemon-reexec
 $SUDO systemctl daemon-reload
 $SUDO systemctl enable $SERVICE_NAME
@@ -124,7 +122,7 @@ kirim_telegram "✅ *Setup Berhasil!* IP Watchdog sekarang aktif di servermu. Ak
 # -------------------------------
 # Bagian Akhir: Output ke Terminal
 # -------------------------------
-log -e "${GREEN}✓ Setup selesai!${RESET}"
-log -e "${CYAN}- Script   :${RESET} $SCRIPT_PATH"
-log -e "${CYAN}- Service  :${RESET} $SERVICE_NAME"
-log -e "${CYAN}- Log IP   :${RESET} $IP_FILE"
+echo -e "${GREEN}✓ Setup selesai!${RESET}"
+echo -e "${CYAN}- Script   :${RESET} $SCRIPT_PATH"
+echo -e "${CYAN}- Service  :${RESET} $SERVICE_NAME"
+echo -e "${CYAN}- Log IP   :${RESET} $IP_FILE"
