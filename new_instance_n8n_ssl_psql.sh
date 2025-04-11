@@ -149,9 +149,11 @@ case $opsi in
     buat_docker_compose
     jalankan_docker_compose
     log "$MAGENTA" "✅ n8n siap diakses di: https://${DOMAIN}"
+    log "$GREEN" "✅ dan cek dengan -sudo docker logs -f n8n"
     ;;
   2)
     update_docker_compose
+    log "$YELLOW" "Updated compose selesai."
     ;;
   3)
     log "$RED" "Keluar dari program."
@@ -162,5 +164,3 @@ case $opsi in
     ;;
 esac
 
-log "$MAGENTA" "✅ n8n siap diakses di: https://${DOMAIN}"
-log "$GREEN" "✅ dan cek dengan -sudo docker logs -f n8n"
