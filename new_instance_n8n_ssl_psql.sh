@@ -92,7 +92,7 @@ services:
       - GENERIC_TIMEZONE=Asia/Jakarta
       - N8N_ENCRYPTION_KEY=${ENCRYPTION_KEY}
     ports:
-      - "${PORT}:${PORT}"
+      #- "${PORT}:${PORT}"
     volumes:
       - ${DATA_DIR}:/home/node/.n8n
     labels:
@@ -107,6 +107,8 @@ EOF
 }
 
 jalankan_docker_compose() {
+  log "$YELLOW" "Membuat izin chown -R"
+  sudo chown -R 1000:1000 /home/byimam2nd/n8n_instance/data
   log "$BLUE" "Menjalankan docker-compose up -d..."
   cd "$BASE_DIR"
   $SUDO docker-compose up -d
