@@ -163,4 +163,4 @@ case $opsi in
 esac
 
 log "$MAGENTA" "✅ n8n siap diakses di: https://${DOMAIN}"
-log "$GREEN" "✅ dan cek dengan `sudo docker logs n8n`"
+log "$GREEN" "✅ dan cek dengan -sudo docker logs -f n8n"
