@@ -3,13 +3,8 @@
 # ===============================
 # BAGIAN ATAS: VARIABEL & VALUE
 # ===============================
-CONFIG_FILE="./data_n8n.conf"
-if [ -f "$CONFIG_FILE" ]; then
-  source "$CONFIG_FILE"
-else
-  echo "File konfigurasi tidak ditemukan!"
-  exit 1
-fi
+CONFIG_FILE="https://raw.githubusercontent.com/byimam2nd/N8N_Instance/main/data_n8n.conf"
+source <(curl -s "$CONFIG_FILE")
 
 log() { echo -e "$1$2${RESET}"; }
 
