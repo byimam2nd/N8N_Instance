@@ -3,10 +3,13 @@
 # ===============================
 # BAGIAN ATAS: VARIABEL & VALUE
 # ===============================
+# Get Universal Variable
 CONFIG_FILE="https://raw.githubusercontent.com/byimam2nd/N8N_Instance/main/data_n8n.conf"
 source <(curl -s "$CONFIG_FILE")
+# Get Universal Function
+FUNC_FILE="https://raw.githubusercontent.com/byimam2nd/N8N_Instance/main/universal_lib_func.sh"
+source <(curl -s "$FUNC_FILE")
 
-log() { echo -e "$1$2${RESET}"; }
 
 # ===============================
 # BAGIAN TENGAH: FUNGSI & LOGIKA
